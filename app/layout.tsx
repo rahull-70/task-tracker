@@ -18,13 +18,13 @@ const luckiestGuy = Luckiest_Guy({
 });
 
 export const metadata: Metadata = {
-  title: 'MISSION COMMAND | Track your Task',
+  title: 'QuestBoard | Track your Task',
   description: 'Track your task minimalistly',
   openGraph: {
-    title: 'MISSION COMMAND',
+    title: 'QuestBoard',
     description: 'Conquer your day, one mission at a time.',
     url: 'https://task-tracker-sepia-six.vercel.app/', 
-    siteName: 'Mission Command',
+    siteName: 'QuestBoard',
     images: [
       {
         url: '/banner.png', 
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   // This makes it look good on X (formerly Twitter)
   twitter: {
     card: 'summary_large_image',
-    title: 'MISSION COMMAND',
+    title: 'QuestBoard',
     description: 'Daily task tracker and mission logs',
     images: ['/banner.png'],
   },
