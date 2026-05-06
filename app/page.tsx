@@ -135,79 +135,81 @@ const Page = () => {
         <CheckCheckIcon size={20} /> <span>Yesterday: {yesterdayCount} tasks finished</span>
       </div>
 
-      <div className='max-w-6xl mx-auto border-4 border-black rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
-        {/* Header updated to grid-cols-6 */}
-        <div className='grid grid-cols-6  text-center p-5 text-[10px] md:text-lg border-b-4 border-black'>
-          <div className='uppercase'>Mission</div>
-          <div className='uppercase'>Priority</div>
-          <div className='uppercase'>Duration</div>
-          <div className='uppercase'>Status</div>
-          <div className='uppercase'>Check</div>
-          <div className='uppercase'>Abort</div>
+      {/* MOBILE FIX: Added overflow-x-auto to the outer container */}
+      <div className='max-w-6xl mx-auto border-4 border-black rounded-3xl overflow-x-auto shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
+        {/* Set a min-width so the table doesn't squash on mobile */}
+        <div className='min-w-[800px] md:min-w-full'>
+            {/* Header updated to grid-cols-6 */}
+            <div className='grid grid-cols-6 text-center p-5 text-sm md:text-lg border-b-4 border-black '>
+              <div className='uppercase'>Mission</div>
+              <div className='uppercase'>Priority</div>
+              <div className='uppercase'>Duration</div>
+              <div className='uppercase'>Status</div>
+              <div className='uppercase'>Check</div>
+              <div className='uppercase'>Abort</div>
+            </div>
+
+            {tasks.map((item, i) => (
+              <div key={i} className={`grid grid-cols-6 border-b-2 border-black last:border-0 items-center transition-all duration-300 ${getStatusColor(item.status)}`}>
+                <input
+                  className={`p-3 md:p-5 bg-transparent outline-none border-r-2 border-black h-full placeholder:opacity-30 transition-all ${item.completed ? 'line-through opacity-50' : ''}`}
+                  value={item.task}
+                  onChange={(e) => updateTask(i, 'task', e.target.value)}
+                  placeholder='Add a mission...'
+                />
+
+                <div className={`relative h-full border-r-2 border-black group transition-colors ${getPriorityColor(item.priority)}`}>
+                  <select
+                    className='w-full h-full p-3 md:p-5 bg-transparent outline-none cursor-pointer appearance-none text-center font-luckiest'
+                    value={item.priority}
+                    onChange={(e) => updateTask(i, 'priority', e.target.value)}
+                  >
+                    <option value='None'>None</option>
+                    <option value='Low'>Low</option>
+                    <option value='Mid'>Mid</option>
+                    <option value='High'>High</option>
+                  </select>
+                  <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
+                    <ChevronDownIcon size={14} />
+                  </div>
+                </div>
+
+                <input
+                  className='p-3 md:p-5 bg-transparent outline-none border-r-2 border-black h-full text-center placeholder:opacity-30'
+                  value={item.duration}
+                  onChange={(e) => updateTask(i, 'duration', e.target.value)}
+                  placeholder='e.g. 30m'
+                />
+
+                <div className='relative h-full border-r-2 border-black group'>
+                  <select
+                    className='w-full h-full p-3 md:p-5 bg-transparent outline-none cursor-pointer appearance-none text-center'
+                    value={item.status}
+                    onChange={(e) => updateTask(i, 'status', e.target.value as any)}
+                  >
+                    <option value='Not Started'>Not Started</option>
+                    <option value='In Progress'>In Progress</option>
+                    <option value='Done'>Done</option>
+                  </select>
+                  <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
+                    <ChevronDownIcon size={14} />
+                  </div>
+                </div>
+
+                <div className='flex justify-center items-center border-r-2 border-black h-full cursor-pointer' onClick={() => updateTask(i, 'completed', !item.completed)}>
+                  <div className={`w-8 h-8 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}>
+                    {item.completed && <CheckCheckIcon size={20} className='text-white' />}
+                  </div>
+                </div>
+
+                <div onClick={() => removeTask(i)} className='flex justify-center items-center h-full hover:bg-red-400 transition-all cursor-pointer group'>
+                  <button className='text-red-500 group-hover:scale-125 transition-transform'>
+                    <DeleteIcon size={26} />
+                  </button>
+                </div>
+              </div>
+            ))}
         </div>
-
-        {tasks.map((item, i) => (
-          <div key={i} className={`grid grid-cols-6 border-b-2 border-black last:border-0 items-center transition-all duration-300 ${getStatusColor(item.status)}`}>
-            <input
-              className={`p-5 bg-transparent outline-none border-r-2 border-black h-full placeholder:opacity-30 transition-all ${item.completed ? 'line-through opacity-50' : ''}`}
-              value={item.task}
-              onChange={(e) => updateTask(i, 'task', e.target.value)}
-              placeholder='Add a mission...'
-            />
-
-            <div className={`relative h-full border-r-2 border-black group transition-colors ${getPriorityColor(item.priority)}`}>
-              <select
-                className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center font-luckiest'
-                value={item.priority}
-                onChange={(e) => updateTask(i, 'priority', e.target.value)}
-                
-              >
-                <option value='None'>None</option>
-                <option value='Low'>Low</option>
-                <option value='Mid'>Mid</option>
-                <option value='High'>High</option>
-              </select>
-              <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
-                <ChevronDownIcon size={14} />
-              </div>
-            </div>
-
-            {/* Duration Column */}
-            <input
-              className='p-5 bg-transparent outline-none border-r-2 border-black h-full text-center placeholder:opacity-30'
-              value={item.duration}
-              onChange={(e) => updateTask(i, 'duration', e.target.value)}
-              placeholder='e.g. 30m'
-            />
-
-            <div className='relative h-full border-r-2 border-black group'>
-              <select
-                className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center'
-                value={item.status}
-                onChange={(e) => updateTask(i, 'status', e.target.value as any)}
-              >
-                <option value='Not Started'>Not Started</option>
-                <option value='In Progress'>In Progress</option>
-                <option value='Done'>Done</option>
-              </select>
-              <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
-                <ChevronDownIcon size={14} />
-              </div>
-            </div>
-
-            <div className='flex justify-center items-center border-r-2 border-black h-full cursor-pointer' onClick={() => updateTask(i, 'completed', !item.completed)}>
-              <div className={`w-8 h-8 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}>
-                {item.completed && <CheckCheckIcon size={20} className='text-white' />}
-              </div>
-            </div>
-
-            <div onClick={() => removeTask(i)} className='flex justify-center items-center h-full hover:bg-red-400 transition-all cursor-pointer group'>
-              <button className='text-red-500 group-hover:scale-125 transition-transform'>
-                <DeleteIcon size={26} />
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
 
       <div className='text-center mt-12'>

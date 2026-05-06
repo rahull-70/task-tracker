@@ -87,7 +87,7 @@ const Dashboard = () => {
             <span>BACK TO MISSIONS</span>
           </div>
         </Link>
-        <h1 className='text-4xl md:text-6xl font-oi tracking-tighter'>STAT CENTER</h1>
+        <h1 className='text-4xl md:text-6xl font-oi tracking-tighter md:px-0 px-3'>STAT CENTER</h1>
       </div>
 
       <div className='max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8'>
