@@ -180,7 +180,7 @@ useEffect(() => {
       </div>
 
       <div className='max-w-4xl mx-auto border-4 border-primary rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
-        <div className='grid grid-cols-4 bg-secondary text-center p-5 text-[10px] md:text-xl border-b-4 border-primary font-luckiest'>
+        <div className='grid grid-cols-4 bg-[#283618]] text-center p-5 text-[10px] md:text-xl border-b-4 border-primary font-luckiest'>
           <div className='uppercase'>Task Name</div>
           <div className='uppercase'>Status</div>
           <div className='uppercase'>Progress</div>
