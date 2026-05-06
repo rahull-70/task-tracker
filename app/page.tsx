@@ -3,7 +3,7 @@ import { CalendarDaysIcon } from '@/components/ui/calendar-days';
 import { CheckCheckIcon } from '@/components/ui/check-check';
 import { DeleteIcon } from '@/components/ui/delete';
 import { ChevronDownIcon } from '@/components/ui/chevron-down';
-import { LayoutDashboardIcon } from 'lucide-react';
+import { LayoutDashboardIcon, ClockIcon } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 
@@ -12,6 +12,7 @@ interface Task {
   status: 'Not Started' | 'In Progress' | 'Done';
   completed: boolean;
   priority: 'None' | 'Low' | 'Mid' | 'High';
+  duration: string; 
 }
 
 const Page = () => {
@@ -25,13 +26,7 @@ const Page = () => {
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        }),
-      );
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -76,7 +71,7 @@ const Page = () => {
         setTasks(saved.tasks);
       }
     } else {
-      setTasks([{ task: '', status: 'Not Started', completed: false, priority: 'None' }]);
+      setTasks([{ task: '', status: 'Not Started', completed: false, priority: 'None', duration: '' }]);
     }
   }, []);
 
@@ -87,19 +82,14 @@ const Page = () => {
   }, [tasks, date]);
 
   const addTask = () => {
-    setTasks([...tasks, { task: '', status: 'Not Started', completed: false, priority: 'None' }]);
+    setTasks([...tasks, { task: '', status: 'Not Started', completed: false, priority: 'None', duration: '' }]);
   };
 
   const updateTask = (index: number, key: keyof Task, value: any) => {
     const updated = [...tasks];
     (updated[index] as any)[key] = value;
-
-    if (key === 'status') {
-      updated[index].completed = value === 'Done';
-    }
-    if (key === 'completed') {
-      updated[index].status = value ? 'Done' : 'In Progress';
-    }
+    if (key === 'status') updated[index].completed = value === 'Done';
+    if (key === 'completed') updated[index].status = value ? 'Done' : 'In Progress';
     setTasks(updated);
   };
 
@@ -111,12 +101,11 @@ const Page = () => {
     }
   };
 
-  // Helper for Priority Colors
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'High': return 'bg-[#ffadad]'; // Soft Red
-      case 'Mid': return 'bg-[#ffd6a5]';  // Soft Orange/Yellow
-      case 'Low': return 'bg-[#caffbf]';  // Soft Green
+      case 'High': return 'bg-[#ffadad]';
+      case 'Mid': return 'bg-[#ffd6a5]';
+      case 'Low': return 'bg-[#caffbf]';
       default: return 'bg-transparent';
     }
   };
@@ -146,20 +135,19 @@ const Page = () => {
         <CheckCheckIcon size={20} /> <span>Yesterday: {yesterdayCount} tasks finished</span>
       </div>
 
-      <div className='max-w-5xl mx-auto border-4 border-black rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
-        <div className='grid grid-cols-5  text-center p-5 text-[10px] md:text-xl border-b-4 border-black'>
+      <div className='max-w-6xl mx-auto border-4 border-black rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
+        {/* Header updated to grid-cols-6 */}
+        <div className='grid grid-cols-6  text-center p-5 text-[10px] md:text-lg border-b-4 border-black'>
           <div className='uppercase'>Mission</div>
           <div className='uppercase'>Priority</div>
+          <div className='uppercase'>Duration</div>
           <div className='uppercase'>Status</div>
           <div className='uppercase'>Check</div>
           <div className='uppercase'>Abort</div>
         </div>
 
         {tasks.map((item, i) => (
-          <div
-            key={i}
-            className={`grid grid-cols-5 border-b-2 border-black last:border-0 items-center transition-all duration-300 ${getStatusColor(item.status)}`}
-          >
+          <div key={i} className={`grid grid-cols-6 border-b-2 border-black last:border-0 items-center transition-all duration-300 ${getStatusColor(item.status)}`}>
             <input
               className={`p-5 bg-transparent outline-none border-r-2 border-black h-full placeholder:opacity-30 transition-all ${item.completed ? 'line-through opacity-50' : ''}`}
               value={item.task}
@@ -167,12 +155,12 @@ const Page = () => {
               placeholder='Add a mission...'
             />
 
-            {/* Enhanced Priority Column */}
             <div className={`relative h-full border-r-2 border-black group transition-colors ${getPriorityColor(item.priority)}`}>
               <select
                 className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center font-luckiest'
                 value={item.priority}
                 onChange={(e) => updateTask(i, 'priority', e.target.value)}
+                
               >
                 <option value='None'>None</option>
                 <option value='Low'>Low</option>
@@ -180,13 +168,21 @@ const Page = () => {
                 <option value='High'>High</option>
               </select>
               <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
-                <ChevronDownIcon size={16} />
+                <ChevronDownIcon size={14} />
               </div>
             </div>
 
+            {/* Duration Column */}
+            <input
+              className='p-5 bg-transparent outline-none border-r-2 border-black h-full text-center placeholder:opacity-30'
+              value={item.duration}
+              onChange={(e) => updateTask(i, 'duration', e.target.value)}
+              placeholder='e.g. 30m'
+            />
+
             <div className='relative h-full border-r-2 border-black group'>
               <select
-                className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none font-luckiest'
+                className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center'
                 value={item.status}
                 onChange={(e) => updateTask(i, 'status', e.target.value as any)}
               >
@@ -195,23 +191,17 @@ const Page = () => {
                 <option value='Done'>Done</option>
               </select>
               <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
-                <ChevronDownIcon size={16} />
+                <ChevronDownIcon size={14} />
               </div>
             </div>
 
-            <div
-              className='flex justify-center items-center border-r-2 border-black h-full cursor-pointer'
-              onClick={() => updateTask(i, 'completed', !item.completed)}
-            >
-              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}>
+            <div className='flex justify-center items-center border-r-2 border-black h-full cursor-pointer' onClick={() => updateTask(i, 'completed', !item.completed)}>
+              <div className={`w-8 h-8 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}>
                 {item.completed && <CheckCheckIcon size={20} className='text-white' />}
               </div>
             </div>
 
-            <div
-              onClick={() => removeTask(i)}
-              className='flex justify-center items-center h-full hover:bg-red-400 transition-all cursor-pointer group'
-            >
+            <div onClick={() => removeTask(i)} className='flex justify-center items-center h-full hover:bg-red-400 transition-all cursor-pointer group'>
               <button className='text-red-500 group-hover:scale-125 transition-transform'>
                 <DeleteIcon size={26} />
               </button>
@@ -221,10 +211,7 @@ const Page = () => {
       </div>
 
       <div className='text-center mt-12'>
-        <button
-          onClick={addTask}
-          className='bg-primary text-white px-10 py-5 rounded-2xl cursor-pointer hover:translate-x-1 hover:-translate-y-1 transition-all border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none'
-        >
+        <button onClick={addTask} className='bg-primary text-white px-10 py-5 rounded-2xl border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none'>
           + ADD NEW MISSION
         </button>
       </div>

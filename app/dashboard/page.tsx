@@ -25,7 +25,6 @@ interface Stats {
 
 const Dashboard = () => {
   const [mounted, setMounted] = useState(false);
-  // 1. ADD THIS STATE
   const [historyData, setHistoryData] = useState<any[]>([]); 
   const [stats, setStats] = useState<Stats>({
     total: 0,
@@ -38,11 +37,11 @@ const Dashboard = () => {
   useEffect(() => {
     setMounted(true);
     const rawData = localStorage.getItem('task-data');
-    // 2. GET DATA FROM LOCALSTORAGE
+    // GET DATA FROM LOCALSTORAGE
     const savedHistory = JSON.parse(localStorage.getItem('mission-history') || '[]');
     const savedTasks = rawData ? JSON.parse(rawData) : null;
     
-    // 3. SAVE TO STATE SO JSX CAN SEE IT
+    // SAVE TO STATE SO JSX CAN SEE IT
     setHistoryData(savedHistory);
 
     let totalMissions = savedHistory.reduce((acc: number, day: any) => acc + (day.total || 0), 0);
@@ -75,7 +74,7 @@ const Dashboard = () => {
     });
   }, []);
 
-  // Prevent Hydration Mismatch
+  
   if (!mounted) return <div className="min-h-screen bg-[#f1f1f1]" />;
 
   return (
