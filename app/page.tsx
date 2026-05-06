@@ -118,7 +118,7 @@ const Page = () => {
 
       <div className='fixed bottom-6 left-6 md:bottom-10 md:left-10 z-50'>
         <Link href='/dashboard'>
-          <div className='flex items-center gap-3 bg-secondary border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all cursor-pointer group'>
+          <div className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all cursor-pointer group'>
             <LayoutDashboardIcon size={28} className='group-hover:rotate-12 transition-transform' />
             <span className='text-xl md:text-2xl uppercase tracking-wider'>Dashboard</span>
           </div>
@@ -213,7 +213,7 @@ const Page = () => {
       </div>
 
       <div className='text-center mt-12'>
-        <button onClick={addTask} className='bg-primary text-white px-10 py-5 rounded-2xl border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none'>
+        <button onClick={addTask} className='bg-primary border-4 text-white border-black py-5 px-6 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all cursor-pointer group'>
           + ADD NEW MISSION
         </button>
       </div>
