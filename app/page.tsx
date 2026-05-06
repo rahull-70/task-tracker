@@ -125,7 +125,7 @@ const Page = () => {
         </Link>
       </div>
 
-      <h1 className='text-5xl md:text-7xl text-center mb-6 font-oi tracking-tighter'>Task Tracker</h1>
+      <h1 className='text-5xl md:text-7xl text-center mb-6 font-oi tracking-tighter md:mt-0 mt-10'>Task Tracker</h1>
 
       <div className='flex items-center justify-center gap-3 mb-2 text-2xl text-light-bronze'>
         <CalendarDaysIcon size={28} /> <span>{date}</span>
