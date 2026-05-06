@@ -78,7 +78,7 @@ const Dashboard = () => {
     });
   }, []);
 
-  if (!mounted) return <div className="min-h-screen bg-[#f1f1f1]" />;
+  if (!mounted) return <div className="min-h-screen" />;
 
   return (
     <div className='p-6 md:p-10 min-h-screen bg-accent text-foreground font-luckiest'>

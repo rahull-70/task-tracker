@@ -140,7 +140,7 @@ const Page = () => {
         {/* Set a min-width so the table doesn't squash on mobile */}
         <div className='min-w-[800px] md:min-w-full'>
             {/* Header updated to grid-cols-6 */}
-            <div className='grid grid-cols-6 text-center p-5 text-sm md:text-lg border-b-4 border-black '>
+            <div className='grid grid-cols-6 text-center bg-white p-5 text-sm md:text-lg border-b-4 border-black '>
               <div className='uppercase'>Mission</div>
               <div className='uppercase'>Priority</div>
               <div className='uppercase'>Duration</div>
