@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion'; // Added Framer Motion
+import { motion } from 'framer-motion'; 
 import {
   ArrowLeftIcon,
   TrophyIcon,
@@ -51,12 +51,8 @@ const Dashboard = () => {
 
     setHistoryData([...formattedHistory, todayStats]);
 
-    const totalMissions =
-      formattedHistory.reduce((acc: number, d: any) => acc + d.total, 0) +
-      totalToday;
-    const totalCompleted =
-      formattedHistory.reduce((acc: number, d: any) => acc + d.completed, 0) +
-      completedToday;
+    const totalMissions = totalToday;
+    const totalCompleted = completedToday;
 
     const currentStreak = parseInt(
       localStorage.getItem('mission-streak') || '0',
