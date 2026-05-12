@@ -1,14 +1,24 @@
 'use client';
+
 import { CalendarDaysIcon } from '@/components/ui/calendar-days';
 import { CheckCheckIcon } from '@/components/ui/check-check';
 import { DeleteIcon } from '@/components/ui/delete';
 import { ChevronDownIcon } from '@/components/ui/chevron-down';
-import { LayoutDashboardIcon, UserIcon, LogInIcon } from 'lucide-react'; // Added Auth Icons
+import {
+  LayoutDashboardIcon,
+  UserIcon,
+  LogInIcon,
+  LogOutIcon,
+} from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/context/AuthContext';
+import { createBrowserClient } from '@supabase/ssr';
 
 interface Task {
+  id?: string;
   task: string;
   status: 'Not Started' | 'In Progress' | 'Done';
   completed: boolean;
@@ -17,14 +27,22 @@ interface Task {
 }
 
 const Page = () => {
+  const { isLoggedIn, isLoading, user, logout } = useAuth();
+  const router = useRouter();
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [date, setDate] = useState('');
   const [currentTime, setCurrentTime] = useState('');
   const [yesterdayCount, setYesterdayCount] = useState(0);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Auth State Placeholder
 
   const getToday = () => new Date().toLocaleDateString();
 
+  // 1. Clock Timer
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -39,54 +57,41 @@ const Page = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const removeTask = (index: number) => {
-    setTasks(tasks.filter((_, i) => i !== index));
-  };
-
+  // 2. Fetch Tasks
   useEffect(() => {
     const today = getToday();
     setDate(today);
-    const rawData = localStorage.getItem('task-data');
-    const saved = rawData ? JSON.parse(rawData) : null;
-    const yData = JSON.parse(localStorage.getItem('yesterday-data') || '[]');
-    setYesterdayCount(yData.filter((t: Task) => t.completed).length);
 
-    if (saved) {
-      if (saved.date !== today) {
-        const history = JSON.parse(
-          localStorage.getItem('mission-history') || '[]',
-        );
-        const yesterdayStats = {
-          date: saved.date,
-          total: saved.tasks.length,
-          completed: saved.tasks.filter((t: Task) => t.completed).length,
-        };
+    const fetchQuests = async () => {
+      if (!user?.id) return;
 
-        if (yesterdayStats.completed > 0) {
-          const oldStreak = parseInt(
-            localStorage.getItem('mission-streak') || '0',
-          );
-          localStorage.setItem('mission-streak', (oldStreak + 1).toString());
-        }
+      const { data, error } = await supabase
+        .from('quests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
 
-        localStorage.setItem(
-          'mission-history',
-          JSON.stringify([...history, yesterdayStats]),
-        );
-        localStorage.setItem('yesterday-data', JSON.stringify(saved.tasks));
-        localStorage.setItem('last-active-date', today);
-
-        const resetTasks = saved.tasks.map((t: Task) => ({
-          ...t,
-          status: 'Not Started',
-          completed: false,
-        }));
-        setTasks(resetTasks);
-      } else {
-        setTasks(saved.tasks);
+      if (error) {
+        console.error('Error:', error.message);
+        return;
       }
-    } else {
+
+      // Fix: always start with empty array, never force a blank row
+      setTasks(data || []);
+    };
+
+    if (isLoggedIn && !isLoading) {
+      fetchQuests();
+    } else if (!isLoading && !isLoggedIn) {
+      setTasks([]); // guests start with empty board too
+    }
+  }, [isLoggedIn, isLoading, user]);
+
+  // 3. Add Task — always adds a new row
+  const addTask = async () => {
+    if (!isLoggedIn || !user) {
       setTasks([
+        ...tasks,
         {
           task: '',
           status: 'Not Started',
@@ -95,35 +100,63 @@ const Page = () => {
           duration: '',
         },
       ]);
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    if (date) {
-      localStorage.setItem('task-data', JSON.stringify({ date, tasks }));
+    const { data, error } = await supabase
+      .from('quests')
+      .insert([
+        {
+          user_id: user.id,
+          task: '',
+          status: 'Not Started',
+          priority: 'None',
+          duration: '',
+          completed: false,
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error('Add task error:', error.message);
+      return;
     }
-  }, [tasks, date]);
 
-  const addTask = () => {
-    setTasks([
-      ...tasks,
-      {
-        task: '',
-        status: 'Not Started',
-        completed: false,
-        priority: 'None',
-        duration: '',
-      },
-    ]);
+    if (data) setTasks([...tasks, data[0]]);
   };
 
-  const updateTask = (index: number, key: keyof Task, value: any) => {
+  // 4. Update Task
+  const updateTask = async (index: number, key: keyof Task, value: any) => {
     const updated = [...tasks];
+    const taskToUpdate = updated[index];
+
     (updated[index] as any)[key] = value;
     if (key === 'status') updated[index].completed = value === 'Done';
     if (key === 'completed')
       updated[index].status = value ? 'Done' : 'In Progress';
+
     setTasks(updated);
+
+    if (isLoggedIn && taskToUpdate.id) {
+      await supabase
+        .from('quests')
+        .update({
+          [key]: value,
+          status: updated[index].status,
+          completed: updated[index].completed,
+        })
+        .eq('id', taskToUpdate.id);
+    }
+  };
+
+  // 5. Remove Task
+  const removeTask = async (index: number) => {
+    const taskToDelete = tasks[index];
+    setTasks(tasks.filter((_, i) => i !== index));
+
+    if (isLoggedIn && taskToDelete.id) {
+      await supabase.from('quests').delete().eq('id', taskToDelete.id);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -152,131 +185,144 @@ const Page = () => {
 
   return (
     <div className='p-6 md:p-10 min-h-screen bg-soft text-foreground relative pb-24 font-luckiest overflow-x-hidden'>
-      {/* AUTH BUTTON - TOP LEFT */}
-      <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50'>
-        <motion.button
-          whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsLoggedIn(!isLoggedIn)}
-          className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer group'
-        >
-          {isLoggedIn ? (
-            <>
-              <UserIcon
-                size={24}
-                className='group-hover:text-primary transition-colors'
-              />
-              <span className='hidden md:inline uppercase text-lg'>
-                Commander
-              </span>
-            </>
-          ) : (
-            <>
-              <LogInIcon
-                size={24}
-                className='group-hover:translate-x-1 transition-transform'
-              />
-              <span className='hidden md:inline uppercase text-lg'>
-                Sign In
-              </span>
-            </>
-          )}
-        </motion.button>
+
+      {/* AUTH BUTTON */}
+      <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50 min-w-[160px] min-h-[60px]'>
+        {isLoading ? (
+          <div className='w-full h-full bg-white/20 border-4 border-black/10 p-3 rounded-2xl animate-pulse' />
+        ) : (
+          <AnimatePresence mode='wait'>
+            {isLoggedIn ? (
+              // User button — links to /user profile page
+              <Link href='/user'>
+                <motion.div
+                  key='commander-btn'
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+                  whileTap={{ scale: 0.95 }}
+                  className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
+                >
+                  <UserIcon
+                    size={24}
+                    className='group-hover:text-primary group-hover:rotate-12 transition-transform'
+                  />
+                  <span className='uppercase text-lg tracking-tighter'>
+                    {user?.codename || 'COMMANDER'}
+                  </span>
+                </motion.div>
+              </Link>
+            ) : (
+              <Link href='/login'>
+                <motion.div
+                  key='signin-btn'
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+                  whileTap={{ scale: 0.95 }}
+                  className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group no-underline text-black'
+                >
+                  <LogInIcon
+                    size={24}
+                    className='group-hover:translate-x-1 transition-transform'
+                  />
+                  <span className='uppercase text-lg tracking-tighter'>
+                    Sign In
+                  </span>
+                </motion.div>
+              </Link>
+            )}
+          </AnimatePresence>
+        )}
       </div>
 
-      {/* CLOCK - TOP RIGHT */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className='absolute top-6 right-6 md:top-10 md:right-10 text-2xl text-primary md:text-3xl'
-      >
+      {/* CLOCK */}
+      <motion.div className='absolute top-6 right-6 md:top-10 md:right-10 text-2xl text-primary md:text-3xl'>
         {currentTime}
       </motion.div>
 
-      {/* DASHBOARD BUTTON - FIXED BOTTOM LEFT */}
-      <div className='fixed bottom-6 left-6 md:bottom-10 md:left-10 z-50'>
-        <Link href='/dashboard'>
+      {/* DASHBOARD BUTTON - Only show when logged in */}
+      <AnimatePresence>
+        {!isLoading && isLoggedIn && (
           <motion.div
-            whileHover={{ scale: 1.05, x: 5, y: -5, boxShadow: 'none' }}
-            whileTap={{ scale: 0.95 }}
-            className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer group'
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className='fixed bottom-6 left-6 md:bottom-10 md:left-10 z-50'
           >
-            <LayoutDashboardIcon
-              size={28}
-              className='group-hover:rotate-12 transition-transform'
-            />
-            <span className='text-xl md:text-2xl uppercase tracking-wider'>
-              Dashboard
-            </span>
+            <Link href='/dashboard'>
+              <motion.div
+                whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+                whileTap={{ scale: 0.95 }}
+                className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group transition-colors'
+              >
+                <LayoutDashboardIcon
+                  size={28}
+                  className='group-hover:rotate-12 transition-transform'
+                />
+                <span className='text-xl md:text-2xl uppercase'>Dashboard</span>
+              </motion.div>
+            </Link>
           </motion.div>
-        </Link>
-      </div>
+        )}
+      </AnimatePresence>
 
-      {/* MAIN TITLE */}
-      <motion.h1
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className='text-3xl md:text-7xl text-center mb-6 font-oi tracking-wide md:mt-0 mt-20 uppercase'
-      >
+      <motion.h1 className='text-3xl md:text-7xl text-center mb-6 font-oi tracking-wide md:mt-0 mt-20 uppercase'>
         QuestBoard
       </motion.h1>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className='flex items-center justify-center gap-3 mb-2 text-2xl text-light-bronze'
-      >
+      <div className='flex items-center justify-center gap-3 mb-2 text-2xl text-light-bronze'>
         <CalendarDaysIcon size={28} /> <span>{date}</span>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className='flex items-center justify-center gap-2 mb-10 text-lg opacity-80'
-      >
-        <CheckCheckIcon size={20} />{' '}
+      <div className='flex items-center justify-center gap-2 mb-10 text-lg opacity-80'>
+        <CheckCheckIcon size={20} />
         <span>Yesterday: {yesterdayCount} tasks finished</span>
-      </motion.div>
+      </div>
 
       {/* MISSION TABLE */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className='max-w-6xl mx-auto border-4 border-black rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'
-      >
-        <div className='overflow-x-auto'>
-          <div className='min-w-[850px]'>
-            <div className='grid grid-cols-[2fr_1fr_1fr_1.2fr_0.8fr_0.8fr] text-center font-luckiest bg-white p-5 text-sm md:text-xl border-b-4 border-black'>
-              <div className='uppercase whitespace-nowrap'>Quest</div>
-              <div className='uppercase whitespace-nowrap'>Priority</div>
-              <div className='uppercase whitespace-nowrap'>Duration</div>
-              <div className='uppercase whitespace-nowrap'>Status</div>
-              <div className='uppercase whitespace-nowrap'>Check</div>
-              <div className='uppercase whitespace-nowrap'>Abort</div>
+      <div className='max-w-6xl mx-auto border-4 border-black rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
+        <div className='overflow-x-auto overflow-y-hidden'>
+          <div className='min-w-[850px] overflow-hidden'>
+            <div className='grid grid-cols-[2fr_1fr_1fr_1.2fr_0.8fr_0.8fr] text-center bg-white p-5 text-sm md:text-xl border-b-4 border-black'>
+              <div className='uppercase'>Quest</div>
+              <div className='uppercase'>Priority</div>
+              <div className='uppercase'>Duration</div>
+              <div className='uppercase'>Status</div>
+              <div className='uppercase'>Check</div>
+              <div className='uppercase'>Abort</div>
             </div>
 
-            <AnimatePresence>
+            <AnimatePresence mode='popLayout'>
+              {tasks.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className='p-10 text-center opacity-40 uppercase text-lg'
+                >
+                  No quests yet. Add one below!
+                </motion.div>
+              )}
               {tasks.map((item, i) => (
                 <motion.div
                   layout
-                  key={i}
+                  key={item.id || `local-${i}`}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={`grid grid-cols-[2fr_1fr_1fr_1.2fr_0.8fr_0.8fr] border-b-2 border-black last:border-0 items-center transition-all duration-300 ${getStatusColor(item.status)}`}
+                  exit={{ opacity: 0 }}
+                  className={`grid grid-cols-[2fr_1fr_1fr_1.2fr_0.8fr_0.8fr] border-b-2 border-black last:border-0 items-center ${getStatusColor(item.status)}`}
                 >
                   <input
-                    className={`p-5 bg-transparent outline-none border-r-2 border-black h-full placeholder:opacity-30 transition-all ${item.completed ? 'line-through opacity-50' : ''}`}
+                    className={`p-5 bg-transparent outline-none border-r-2 border-black h-full placeholder:opacity-30 ${item.completed ? 'line-through opacity-50' : ''}`}
                     value={item.task}
                     onChange={(e) => updateTask(i, 'task', e.target.value)}
                     placeholder='Add a mission...'
                   />
 
                   <div
-                    className={`relative h-full border-r-2 border-black group transition-colors ${getPriorityColor(item.priority)}`}
+                    className={`relative h-full border-r-2 border-black ${getPriorityColor(item.priority)}`}
                   >
                     <select
                       className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center font-luckiest'
@@ -290,9 +336,10 @@ const Page = () => {
                       <option value='Mid'>Mid</option>
                       <option value='High'>High</option>
                     </select>
-                    <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
-                      <ChevronDownIcon size={14} />
-                    </div>
+                    <ChevronDownIcon
+                      size={14}
+                      className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none'
+                    />
                   </div>
 
                   <input
@@ -302,9 +349,9 @@ const Page = () => {
                     placeholder='e.g. 30m'
                   />
 
-                  <div className='relative h-full border-r-2 border-black group'>
+                  <div className='relative h-full border-r-2 border-black'>
                     <select
-                      className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center whitespace-nowrap'
+                      className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center'
                       value={item.status}
                       onChange={(e) =>
                         updateTask(i, 'status', e.target.value as any)
@@ -314,52 +361,49 @@ const Page = () => {
                       <option value='In Progress'>In Progress</option>
                       <option value='Done'>Done</option>
                     </select>
-                    <div className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none group-hover:rotate-12 transition-transform'>
-                      <ChevronDownIcon size={14} />
-                    </div>
+                    <ChevronDownIcon
+                      size={14}
+                      className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none'
+                    />
                   </div>
 
                   <div
                     className='flex justify-center items-center border-r-2 border-black h-full cursor-pointer'
                     onClick={() => updateTask(i, 'completed', !item.completed)}
                   >
-                    <motion.div
-                      whileTap={{ scale: 0.8 }}
+                    <div
                       className={`w-8 h-8 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}
                     >
                       {item.completed && (
                         <CheckCheckIcon size={20} className='text-white' />
                       )}
-                    </motion.div>
+                    </div>
                   </div>
 
                   <div
                     onClick={() => removeTask(i)}
                     className='flex justify-center items-center h-full hover:bg-red-400 transition-all cursor-pointer group'
                   >
-                    <motion.button
-                      whileHover={{ rotate: 90, scale: 1.2 }}
-                      className='text-red-500 cursor-pointer'
-                    >
-                      <DeleteIcon size={26} />
-                    </motion.button>
+                    <DeleteIcon
+                      size={26}
+                      className='text-red-500 group-hover:text-white transition-colors'
+                    />
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* ADD MISSION BUTTON */}
       <div className='text-center mt-12'>
         <motion.button
-          whileHover={{ scale: 1.05, boxShadow: 'none', x: 4, y: 4 }}
+          whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
           whileTap={{ scale: 0.95 }}
           onClick={addTask}
-          className='bg-primary border-4 text-white border-black py-5 px-6 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer group font-luckiest'
+          className='bg-primary border-4 text-white border-black py-5 px-8 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer uppercase'
         >
-          + ADD NEW QUest
+          + ADD NEW Quest
         </motion.button>
       </div>
     </div>

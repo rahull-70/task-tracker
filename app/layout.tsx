@@ -24,11 +24,11 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'QuestBoard',
     description: 'Conquer your day, one mission at a time.',
-    url: 'https://task-tracker-sepia-six.vercel.app/', 
+    url: 'https://task-tracker-sepia-six.vercel.app/',
     siteName: 'QuestBoard',
     images: [
       {
-        url: '/banner.png', 
+        url: '/banner.png',
         width: 1200,
         height: 630,
         alt: 'Mission Command App Preview',
@@ -63,11 +63,9 @@ export default function RootLayout({
         inter.variable,
       )}
     >
-      <body className='min-h-full flex flex-col'>
-        <AuthProvider >
-        {children}
-        </AuthProvider>
-        </body>
+      <body className='min-h-full flex flex-col ' suppressHydrationWarning>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

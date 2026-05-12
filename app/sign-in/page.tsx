@@ -1,21 +1,21 @@
 'use client';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  UserPlusIcon, 
-  LockIcon, 
-  MailIcon, 
-  UserIcon, 
-  ArrowRightIcon, 
-  ShieldCheckIcon 
+import {
+  UserPlusIcon,
+  LockIcon,
+  MailIcon,
+  UserIcon,
+  ArrowRightIcon,
+  ShieldCheckIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // ← new
-import { useAuth } from '@/context/AuthContext'; // ← new
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 const SignUpPage = () => {
-  const { login } = useAuth(); // ← new
-  const router = useRouter();  // ← new
+  const { register } = useAuth();
+  const router = useRouter();
 
   const [formData, setFormData] = useState({
     codename: '',
@@ -23,17 +23,13 @@ const SignUpPage = () => {
     password: '',
     confirmPassword: '',
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const [error, setError] = useState('');   // ← new: validation errors
-
-  // ── SUBMIT HANDLER ────────────────────────────────────────────────────────
-  // Saves account to localStorage, then immediately logs the user in.
-  // This means sign up = instant login, no extra step needed.
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // Basic validation
     if (!formData.codename.trim()) {
       setError('Codename required, Commander.');
       return;
@@ -47,22 +43,24 @@ const SignUpPage = () => {
       return;
     }
 
-    // Save credentials to localStorage (used by login page to verify)
-    const userRecord = {
-      codename: formData.codename.toUpperCase().replace(/\s+/g, '_'),
-      email: formData.email,
-      password: formData.password,
-    };
-    localStorage.setItem('registered_user', JSON.stringify(userRecord));
+    setLoading(true);
+    const result = await register(
+      formData.codename,
+      formData.email,
+      formData.password,
+    );
 
-    // Log in immediately after sign up → go home
-    login({ codename: userRecord.codename, email: userRecord.email });
+    if (result.error) {
+      setError(result.error);
+      setLoading(false);
+      return;
+    }
+
     router.push('/');
   };
 
   return (
     <div className='min-h-screen bg-soft flex items-center justify-center p-6 font-luckiest text-foreground overflow-hidden'>
-      {/* BACKGROUND DECORATION */}
       <div className='fixed inset-0 pointer-events-none opacity-5'>
         <div className='absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary rounded-full blur-[120px]' />
         <div className='absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary rounded-full blur-[120px]' />
@@ -75,8 +73,7 @@ const SignUpPage = () => {
         className='w-full max-w-5xl bg-white border-4 border-black rounded-3xl shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative z-10 overflow-hidden'
       >
         <div className='grid md:grid-cols-2'>
-          
-          {/* LEFT SIDE: ICON & WELCOME */}
+          {/* LEFT */}
           <div className='bg-[#fefae0] p-8 md:p-12 border-b-4 md:border-b-0 md:border-r-4 border-black flex flex-col justify-center items-center text-center'>
             <motion.div
               whileHover={{ rotate: 360 }}
@@ -93,10 +90,8 @@ const SignUpPage = () => {
             </p>
           </div>
 
-          {/* RIGHT SIDE: FORM */}
+          {/* RIGHT */}
           <div className='p-8 md:p-10 flex flex-col justify-center bg-white'>
-
-            {/* ── ERROR MESSAGE (only visible on failed validation) ── */}
             {error && (
               <motion.p
                 initial={{ opacity: 0, y: -8 }}
@@ -107,12 +102,12 @@ const SignUpPage = () => {
               </motion.p>
             )}
 
-            <form className='space-y-4' onSubmit={handleSignUp}> {/* ← onSubmit wired */}
-              
+            <form className='space-y-4' onSubmit={handleSignUp}>
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                {/* CODENAME */}
                 <div className='space-y-2'>
-                  <label className='block uppercase text-lg ml-1'>Codename</label>
+                  <label className='block uppercase text-lg ml-1'>
+                    Codename
+                  </label>
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
                       <UserIcon size={18} />
@@ -122,15 +117,18 @@ const SignUpPage = () => {
                       placeholder='Ghost_Operator'
                       className='w-full bg-soft border-4 border-black p-3 pl-12 rounded-xl outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all'
                       value={formData.codename}
-                      onChange={(e) => setFormData({ ...formData, codename: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, codename: e.target.value })
+                      }
                       required
                     />
                   </div>
                 </div>
 
-                {/* EMAIL */}
                 <div className='space-y-2'>
-                  <label className='block uppercase text-lg ml-1'>Secure Email</label>
+                  <label className='block uppercase text-lg ml-1'>
+                    Secure Email
+                  </label>
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
                       <MailIcon size={18} />
@@ -140,14 +138,15 @@ const SignUpPage = () => {
                       placeholder='recruit@base.com'
                       className='w-full bg-soft border-4 border-black p-3 pl-12 rounded-xl outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all'
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
                       required
                     />
                   </div>
                 </div>
               </div>
 
-              {/* PASSWORD GRID */}
               <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <div className='space-y-2'>
                   <label className='block uppercase text-lg ml-1'>Secret</label>
@@ -160,13 +159,18 @@ const SignUpPage = () => {
                       placeholder='••••••'
                       className='w-full bg-soft border-4 border-black p-3 pl-12 rounded-xl outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all'
                       value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
                       required
                     />
                   </div>
                 </div>
+
                 <div className='space-y-2'>
-                  <label className='block uppercase text-lg ml-1'>Confirm</label>
+                  <label className='block uppercase text-lg ml-1'>
+                    Confirm
+                  </label>
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
                       <ShieldCheckIcon size={18} />
@@ -176,7 +180,12 @@ const SignUpPage = () => {
                       placeholder='••••••'
                       className='w-full bg-soft border-4 border-black p-3 pl-12 rounded-xl outline-none focus:bg-white focus:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all'
                       value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
                       required
                     />
                   </div>
@@ -184,17 +193,25 @@ const SignUpPage = () => {
               </div>
 
               <motion.button
-                type='submit' // ← was missing
-                whileHover={{ scale: 1.02, x: 4, y: 4, boxShadow: 'none' }}
-                whileTap={{ scale: 0.98 }}
-                className='w-full bg-[#ffd6a5] border-4 border-black py-4 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3 text-2xl uppercase mt-4 cursor-pointer group'
+                type='submit'
+                disabled={loading}
+                whileHover={
+                  !loading ? { scale: 1.02, x: 4, y: 4, boxShadow: 'none' } : {}
+                }
+                whileTap={!loading ? { scale: 0.98 } : {}}
+                className='w-full bg-[#ffd6a5] border-4 border-black py-4 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-3 text-2xl uppercase mt-4 cursor-pointer group disabled:opacity-60'
               >
-                Enlist Now
-                <ArrowRightIcon className='group-hover:translate-x-2 transition-transform' />
+                {loading ? (
+                  'Enlisting...'
+                ) : (
+                  <>
+                    Enlist Now{' '}
+                    <ArrowRightIcon className='group-hover:translate-x-2 transition-transform' />
+                  </>
+                )}
               </motion.button>
             </form>
 
-            {/* FOOTER */}
             <p className='text-center mt-8 text-sm uppercase opacity-80'>
               Already Enlisted?{' '}
               <Link
@@ -205,7 +222,6 @@ const SignUpPage = () => {
               </Link>
             </p>
           </div>
-
         </div>
       </motion.div>
     </div>
