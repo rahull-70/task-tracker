@@ -1,7 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Shield, Target, Zap, Award, ArrowLeftIcon, LogOutIcon, FlameIcon } from 'lucide-react';
+import Image from 'next/image';
+import { User, Shield, Target, Zap, Award, ArrowLeftIcon, LogOutIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -21,9 +22,7 @@ const UserProfilePage = () => {
   const [rank, setRank] = useState('ROOKIE');
 
   useEffect(() => {
-    if (!isLoading && !isLoggedIn) {
-      router.replace('/login');
-    }
+    if (!isLoading && !isLoggedIn) router.replace('/login');
   }, [isLoggedIn, isLoading]);
 
   useEffect(() => {
@@ -68,15 +67,11 @@ const UserProfilePage = () => {
       setRank(xp > 5000 ? 'COMMANDANT' : xp > 1000 ? 'VETERAN' : 'ROOKIE');
     };
 
-    // Set joined date from user id (cuid has timestamp encoded, use current as fallback)
     setJoined(new Date().toLocaleDateString('en-US', { month: '2-digit', year: 'numeric' }));
     fetchStats();
   }, [user]);
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/');
-  };
+  const handleLogout = async () => { await logout(); router.push('/'); };
 
   if (isLoading) {
     return (
@@ -106,10 +101,10 @@ const UserProfilePage = () => {
       {/* LOGOUT BUTTON */}
       <div className='fixed top-6 right-6 md:top-10 md:right-10 z-50'>
         <motion.button
-          whileHover={{ scale: 1.05 }}
+          whileHover={{ scale: 1.05, x: 2, y: 2, boxShadow: 'none' }}
           whileTap={{ scale: 0.95 }}
           onClick={handleLogout}
-          className='flex items-center gap-2 bg-red-400 border-4 border-black p-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-white uppercase cursor-pointer'
+          className='flex items-center gap-2 bg-[#ffadad] hover:bg-red-400 text-black border-4 border-black p-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] uppercase cursor-pointer transition-colors'
         >
           <LogOutIcon size={20} />
           <span className='hidden md:inline'>Log Out</span>
@@ -152,31 +147,41 @@ const UserProfilePage = () => {
             </div>
 
             {/* XP BADGE */}
-            <div className='bg-black text-primary border-4 border-primary p-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-center'>
-              <p className='text-xs opacity-60 uppercase'>Total XP</p>
-              <p className='text-3xl'>{stats.xp}</p>
+            <div className='bg-white text-black border-4 border-black p-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-center min-w-[100px]'>
+              <p className='text-xs opacity-60 uppercase tracking-wider'>Total XP</p>
+              <p className='text-3xl mt-1'>{stats.xp}</p>
             </div>
           </div>
 
-          {/* STAT GRID */}
+          {/* STAT GRID — same colors as dashboard */}
           <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mt-10'>
-            <div className='bg-[#ffd6a5] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+            {/* Total Quests — orange, matches dashboard TOTAL */}
+            <div className='bg-[#faedcd] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
                 <Target size={16} /> <span className='text-xs uppercase'>Total Quests</span>
               </div>
               <p className='text-3xl'>{stats.missions}</p>
             </div>
 
-            <div className='bg-[#caffbf] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+            {/* Success Rate — green, matches dashboard COMPLETED */}
+            <div className='bg-[#ccd5ae] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
                 <Zap size={16} /> <span className='text-xs uppercase'>Success Rate</span>
               </div>
               <p className='text-3xl'>{stats.accuracy}</p>
             </div>
 
-            <div className='bg-[#9bf6ff] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+            {/* Streak — blue, matches dashboard STREAK */}
+            <div className='bg-[#f07167] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
-                <FlameIcon size={16} className={stats.streak > 0 ? 'text-orange-500' : ''} />
+                <Image
+                  src='/Fire.gif'
+                  alt='streak fire'
+                  width={16}
+                  height={16}
+                  className={stats.streak === 0 ? 'opacity-30 grayscale' : ''}
+                  unoptimized
+                />
                 <span className='text-xs uppercase'>Streak</span>
               </div>
               <p className='text-3xl'>{stats.streak}D</p>

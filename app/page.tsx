@@ -189,52 +189,43 @@ const Page = () => {
       {/* AUTH BUTTON */}
       <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50 min-w-[160px] min-h-[60px]'>
         {isLoading ? (
-          <div className='w-full h-full bg-white/20 border-4 border-black/10 p-3 rounded-2xl animate-pulse' />
+          <div className='w-[160px] h-[52px] bg-white/40 border-4 border-black/10 rounded-2xl animate-pulse' />
         ) : (
           <AnimatePresence mode='wait'>
-            {isLoggedIn ? (
-              // User button — links to /user profile page
-              <Link href='/user'>
-                <motion.div
-                  key='commander-btn'
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-                  whileTap={{ scale: 0.95 }}
-                  className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
-                >
-                  <UserIcon
-                    size={24}
-                    className='group-hover:text-primary group-hover:rotate-12 transition-transform'
-                  />
-                  <span className='uppercase text-lg tracking-tighter'>
-                    {user?.codename || 'COMMANDER'}
-                  </span>
-                </motion.div>
-              </Link>
-            ) : (
-              <Link href='/login'>
-                <motion.div
-                  key='signin-btn'
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-                  whileTap={{ scale: 0.95 }}
-                  className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group no-underline text-black'
-                >
-                  <LogInIcon
-                    size={24}
-                    className='group-hover:translate-x-1 transition-transform'
-                  />
-                  <span className='uppercase text-lg tracking-tighter'>
-                    Sign In
-                  </span>
-                </motion.div>
-              </Link>
-            )}
-          </AnimatePresence>
+  {!isLoading && (
+    isLoggedIn ? (
+      <Link href='/user'>
+        <motion.div
+          key='commander-btn'
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+          whileTap={{ scale: 0.95 }}
+          className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
+        >
+          <UserIcon size={24} className='group-hover:text-primary group-hover:rotate-12 transition-transform' />
+          <span className='uppercase text-lg tracking-tighter'>{user?.codename || 'COMMANDER'}</span>
+        </motion.div>
+      </Link>
+    ) : (
+      <Link href='/login'>
+        <motion.div
+          key='signin-btn'
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+          whileTap={{ scale: 0.95 }}
+          className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black'
+        >
+          <LogInIcon size={24} className='group-hover:translate-x-1 transition-transform' />
+          <span className='uppercase text-lg tracking-tighter'>Sign In</span>
+        </motion.div>
+      </Link>
+    )
+  )}
+</AnimatePresence>
         )}
       </div>
 
