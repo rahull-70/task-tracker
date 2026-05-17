@@ -2,7 +2,15 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { User, Shield, Target, Zap, Award, ArrowLeftIcon, LogOutIcon } from 'lucide-react';
+import {
+  User,
+  Shield,
+  Target,
+  Zap,
+  Award,
+  ArrowLeftIcon,
+  LogOutIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -17,7 +25,12 @@ const UserProfilePage = () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   );
 
-  const [stats, setStats] = useState({ missions: 0, accuracy: '0%', streak: 0, xp: 0 });
+  const [stats, setStats] = useState({
+    missions: 0,
+    accuracy: '0%',
+    streak: 0,
+    xp: 0,
+  });
   const [joined, setJoined] = useState('');
   const [rank, setRank] = useState('ROOKIE');
 
@@ -37,8 +50,9 @@ const UserProfilePage = () => {
       if (!quests) return;
 
       const totalMissions = quests.length;
-      const completed = quests.filter(q => q.completed).length;
-      const accuracy = totalMissions > 0 ? Math.round((completed / totalMissions) * 100) : 0;
+      const completed = quests.filter((q) => q.completed).length;
+      const accuracy =
+        totalMissions > 0 ? Math.round((completed / totalMissions) * 100) : 0;
       const xp = completed * 100;
 
       // Calculate streak
@@ -50,7 +64,7 @@ const UserProfilePage = () => {
       });
 
       const sortedDates = Object.keys(byDate).sort(
-        (a, b) => new Date(b).getTime() - new Date(a).getTime()
+        (a, b) => new Date(b).getTime() - new Date(a).getTime(),
       );
       let streak = 0;
       const today = new Date();
@@ -58,20 +72,35 @@ const UserProfilePage = () => {
       for (let i = 0; i < sortedDates.length; i++) {
         const d = new Date(sortedDates[i]);
         d.setHours(0, 0, 0, 0);
-        const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round(
+          (today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
+        );
         if (diffDays === i && byDate[sortedDates[i]].completed > 0) streak++;
         else break;
       }
 
-      setStats({ missions: totalMissions, accuracy: `${accuracy}%`, streak, xp });
+      setStats({
+        missions: totalMissions,
+        accuracy: `${accuracy}%`,
+        streak,
+        xp,
+      });
       setRank(xp > 5000 ? 'COMMANDANT' : xp > 1000 ? 'VETERAN' : 'ROOKIE');
     };
 
-    setJoined(new Date().toLocaleDateString('en-US', { month: '2-digit', year: 'numeric' }));
+    setJoined(
+      new Date().toLocaleDateString('en-US', {
+        month: '2-digit',
+        year: 'numeric',
+      }),
+    );
     fetchStats();
   }, [user]);
 
-  const handleLogout = async () => { await logout(); router.push('/'); };
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
 
   if (isLoading) {
     return (
@@ -83,7 +112,6 @@ const UserProfilePage = () => {
 
   return (
     <div className='min-h-screen bg-soft flex items-center justify-center p-6 font-luckiest text-foreground'>
-
       {/* BACK BUTTON */}
       <div className='fixed top-6 left-6 md:top-10 md:left-10 z-50'>
         <Link href='/'>
@@ -135,43 +163,47 @@ const UserProfilePage = () => {
         <div className='pt-16 p-8'>
           <div className='flex flex-col md:flex-row justify-between items-start gap-4'>
             <div>
-              <h2 className='text-4xl font-oi uppercase tracking-tighter'>
+              <h2 className='text-4xl uppercase tracking-tighter'>
                 {user?.codename || 'COMMANDER'}
               </h2>
               <p className='text-light-bronze text-xl uppercase opacity-80 flex items-center gap-2'>
                 <Award size={20} className='text-primary' /> {rank}
               </p>
-              <p className='text-sm mt-2 font-sans font-bold opacity-50 uppercase'>
+              <p className='text-sm mt-2 font-bold opacity-50 uppercase'>
                 Active Since: {joined}
               </p>
             </div>
 
             {/* XP BADGE */}
             <div className='bg-white text-black border-4 border-black p-3 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-center min-w-[100px]'>
-              <p className='text-xs opacity-60 uppercase tracking-wider'>Total XP</p>
+              <span className='bg-soft px-2 py-0.5 border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs md:text-sm'>
+                TOTAL XP
+              </span>
               <p className='text-3xl mt-1'>{stats.xp}</p>
             </div>
           </div>
 
-          {/* STAT GRID — same colors as dashboard */}
+          {/* STAT GRID */}
           <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mt-10'>
-            {/* Total Quests — orange, matches dashboard TOTAL */}
+            {/* Total Quests  */}
             <div className='bg-[#faedcd] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
-                <Target size={16} /> <span className='text-xs uppercase'>Total Quests</span>
+                <Target size={16} />{' '}
+                <span className='text-xs uppercase'>Total Quests</span>
               </div>
               <p className='text-3xl'>{stats.missions}</p>
             </div>
 
-            {/* Success Rate — green, matches dashboard COMPLETED */}
+            {/* Success Rate*/}
             <div className='bg-[#ccd5ae] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
-                <Zap size={16} /> <span className='text-xs uppercase'>Success Rate</span>
+                <Zap size={16} />{' '}
+                <span className='text-xs uppercase'>Success Rate</span>
               </div>
               <p className='text-3xl'>{stats.accuracy}</p>
             </div>
 
-            {/* Streak — blue, matches dashboard STREAK */}
+            {/* Streak */}
             <div className='bg-[#f07167] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
                 <Image
@@ -189,11 +221,11 @@ const UserProfilePage = () => {
           </div>
 
           {/* CREDENTIALS */}
-          <div className='mt-10 border-t-4 border-black pt-6'>
+          <div className='mt-10 border-t-4 border-black pt-6 '>
             <h3 className='text-xl uppercase mb-4'>Credentials</h3>
-            <div className='bg-soft border-4 border-black p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4'>
+            <div className='bg-soft border-4 border-black p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <span className='opacity-60 uppercase'>Intel (Email)</span>
-              <span className='font-sans font-bold'>{user?.email || '—'}</span>
+              <span className=' font-bold underline'>{user?.email || '—'}</span>
             </div>
           </div>
         </div>

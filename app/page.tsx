@@ -185,48 +185,55 @@ const Page = () => {
 
   return (
     <div className='p-6 md:p-10 min-h-screen bg-soft text-foreground relative pb-24 font-luckiest overflow-x-hidden'>
-
       {/* AUTH BUTTON */}
-      <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50 min-w-[160px] min-h-[60px]'>
-        {isLoading ? (
-          <div className='w-[160px] h-[52px] bg-white/40 border-4 border-black/10 rounded-2xl animate-pulse' />
-        ) : (
-          <AnimatePresence mode='wait'>
-  {!isLoading && (
-    isLoggedIn ? (
-      <Link href='/user'>
-        <motion.div
-          key='commander-btn'
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-          whileTap={{ scale: 0.95 }}
-          className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
-        >
-          <UserIcon size={24} className='group-hover:text-primary group-hover:rotate-12 transition-transform' />
-          <span className='uppercase text-lg tracking-tighter'>{user?.codename || 'COMMANDER'}</span>
-        </motion.div>
-      </Link>
-    ) : (
-      <Link href='/login'>
-        <motion.div
-          key='signin-btn'
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-          whileTap={{ scale: 0.95 }}
-          className='flex items-center gap-3 bg-white border-4 border-black p-3 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black'
-        >
-          <LogInIcon size={24} className='group-hover:translate-x-1 transition-transform' />
-          <span className='uppercase text-lg tracking-tighter'>Sign In</span>
-        </motion.div>
-      </Link>
-    )
-  )}
-</AnimatePresence>
-        )}
+      {/* AUTH BUTTON CONTAINER */}
+      <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50'>
+        <AnimatePresence mode='wait'>
+          {/* Only render and animate once loading is fully done, exactly like the dashboard logic */}
+          {!isLoading && (
+            <motion.div
+              key={isLoggedIn ? 'commander-ready' : 'signin-ready'}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 180 }}
+            >
+              {isLoggedIn ? (
+                <Link href='/user' passHref legacyBehavior>
+                  <motion.a
+                    whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+                    whileTap={{ scale: 0.95 }}
+                    className='flex items-center gap-3 bg-white border-4 border-black p-3 px-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black no-underline select-none'
+                  >
+                    <UserIcon
+                      size={24}
+                      className='group-hover:text-primary group-hover:rotate-12 transition-transform'
+                    />
+                    <span className='text-md md:text-xl uppercase font-luckiest tracking-tight'>
+                      {user?.codename || 'COMMANDER'}
+                    </span>
+                  </motion.a>
+                </Link>
+              ) : (
+                <Link href='/login' passHref legacyBehavior>
+                  <motion.a
+                    whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
+                    whileTap={{ scale: 0.95 }}
+                    className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black no-underline select-none'
+                  >
+                    <LogInIcon
+                      size={28}
+                      className='group-hover:translate-x-1 transition-transform'
+                    />
+                    <span className='text-md md:text-xl uppercase font-luckiest tracking-tight'>
+                      Sign In
+                    </span>
+                  </motion.a>
+                </Link>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* CLOCK */}
@@ -253,7 +260,7 @@ const Page = () => {
                   size={28}
                   className='group-hover:rotate-12 transition-transform'
                 />
-                <span className='text-xl md:text-2xl uppercase'>Dashboard</span>
+                <span className='text-md md:text-xl uppercase'>Dashboard</span>
               </motion.div>
             </Link>
           </motion.div>
