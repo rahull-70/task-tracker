@@ -9,6 +9,7 @@ import {
   UserIcon,
   LogInIcon,
   LogOutIcon,
+  Check,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -16,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
+import { CheckIcon } from '@/components/ui/check';
 
 interface Task {
   id?: string;
@@ -186,7 +188,7 @@ const Page = () => {
   return (
     <div className='p-6 md:p-10 min-h-screen bg-soft text-foreground relative pb-24 font-luckiest overflow-x-hidden'>
       {/* AUTH BUTTON */}
-      {/* AUTH BUTTON CONTAINER */}
+
       <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50'>
         <AnimatePresence mode='wait'>
           {/* Only render and animate once loading is fully done, exactly like the dashboard logic */}
@@ -373,7 +375,7 @@ const Page = () => {
                       className={`w-8 h-8 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}
                     >
                       {item.completed && (
-                        <CheckCheckIcon size={20} className='text-white' />
+                        <CheckIcon size={20} className='text-white' />
                       )}
                     </div>
                   </div>
