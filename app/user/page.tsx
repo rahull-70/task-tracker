@@ -211,7 +211,7 @@ const UserProfilePage = () => {
                   alt='streak fire'
                   width={16}
                   height={16}
-                  className={stats.streak === 0 ? 'opacity-30 grayscale' : ''}
+                  className={stats.streak === 0 ? 'opacity-100' : ''}
                   unoptimized
                 />
                 <span className='text-xs uppercase'>Streak</span>

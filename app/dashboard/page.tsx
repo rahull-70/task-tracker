@@ -289,7 +289,7 @@ const Dashboard = () => {
                   alt='streak fire'
                   width={40}
                   height={40}
-                  className={stats.streak === 0 ? 'opacity-30 grayscale' : ''}
+                  className={stats.streak === 0 ? 'opacity-100 ' : ''}
                   unoptimized
                 />
               ),
