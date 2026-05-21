@@ -1,38 +1,55 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import {
-  User,
-  Shield,
-  Target,
-  Zap,
-  Award,
-  ArrowLeftIcon,
-  LogOutIcon,
-} from 'lucide-react';
+import { User, Shield, Target, Zap, Award, ArrowLeftIcon, LogOutIcon, ZapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
 
+// Same XP level system as dashboard
+const XP_LEVELS = [
+  { level: 1,  name: 'ROOKIE',      minXP: 0 },
+  { level: 2,  name: 'SCOUT',       minXP: 200 },
+  { level: 3,  name: 'SOLDIER',     minXP: 500 },
+  { level: 4,  name: 'CORPORAL',    minXP: 1000 },
+  { level: 5,  name: 'SERGEANT',    minXP: 2000 },
+  { level: 6,  name: 'LIEUTENANT',  minXP: 3500 },
+  { level: 7,  name: 'CAPTAIN',     minXP: 5500 },
+  { level: 8,  name: 'MAJOR',       minXP: 8000 },
+  { level: 9,  name: 'COLONEL',     minXP: 11000 },
+  { level: 10, name: 'COMMANDANT',  minXP: 15000 },
+];
+
+const getLevel = (xp: number) => {
+  let current = XP_LEVELS[0];
+  for (const lvl of XP_LEVELS) {
+    if (xp >= lvl.minXP) current = lvl;
+  }
+  const nextLvl = XP_LEVELS.find(l => l.minXP > xp);
+  const progress = nextLvl
+    ? Math.round(((xp - current.minXP) / (nextLvl.minXP - current.minXP)) * 100)
+    : 100;
+  return { ...current, nextLvl, progress };
+};
+
 const UserProfilePage = () => {
   const { user, logout, isLoading, isLoggedIn } = useAuth();
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabaseRef = useRef(
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    )
   );
+  const supabase = supabaseRef.current;
 
-  const [stats, setStats] = useState({
-    missions: 0,
-    accuracy: '0%',
-    streak: 0,
-    xp: 0,
-  });
+  const [stats, setStats] = useState({ missions: 0, accuracy: '0%', streak: 0, xp: 0 });
   const [joined, setJoined] = useState('');
-  const [rank, setRank] = useState('ROOKIE');
+
+  const levelInfo = getLevel(stats.xp);
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) router.replace('/login');
@@ -50,21 +67,20 @@ const UserProfilePage = () => {
       if (!quests) return;
 
       const totalMissions = quests.length;
-      const completed = quests.filter((q) => q.completed).length;
-      const accuracy =
-        totalMissions > 0 ? Math.round((completed / totalMissions) * 100) : 0;
+      const completed = quests.filter(q => q.completed).length;
+      const accuracy = totalMissions > 0 ? Math.round((completed / totalMissions) * 100) : 0;
       const xp = completed * 100;
 
-      // Calculate streak
+      // Streak
       const byDate: Record<string, { completed: number }> = {};
-      quests.forEach((q: any) => {
+      quests.forEach((q: { created_at: string; completed: boolean }) => {
         const d = new Date(q.created_at).toLocaleDateString();
         if (!byDate[d]) byDate[d] = { completed: 0 };
         if (q.completed) byDate[d].completed++;
       });
 
       const sortedDates = Object.keys(byDate).sort(
-        (a, b) => new Date(b).getTime() - new Date(a).getTime(),
+        (a, b) => new Date(b).getTime() - new Date(a).getTime()
       );
       let streak = 0;
       const today = new Date();
@@ -72,35 +88,19 @@ const UserProfilePage = () => {
       for (let i = 0; i < sortedDates.length; i++) {
         const d = new Date(sortedDates[i]);
         d.setHours(0, 0, 0, 0);
-        const diffDays = Math.round(
-          (today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
-        );
+        const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays === i && byDate[sortedDates[i]].completed > 0) streak++;
         else break;
       }
 
-      setStats({
-        missions: totalMissions,
-        accuracy: `${accuracy}%`,
-        streak,
-        xp,
-      });
-      setRank(xp > 5000 ? 'COMMANDANT' : xp > 1000 ? 'VETERAN' : 'ROOKIE');
+      setStats({ missions: totalMissions, accuracy: `${accuracy}%`, streak, xp });
     };
 
-    setJoined(
-      new Date().toLocaleDateString('en-US', {
-        month: '2-digit',
-        year: 'numeric',
-      }),
-    );
+    setJoined(new Date().toLocaleDateString('en-US', { month: '2-digit', year: 'numeric' }));
     fetchStats();
   }, [user]);
 
-  const handleLogout = async () => {
-    await logout();
-    router.push('/');
-  };
+  const handleLogout = async () => { await logout(); router.push('/'); };
 
   if (isLoading) {
     return (
@@ -112,6 +112,7 @@ const UserProfilePage = () => {
 
   return (
     <div className='min-h-screen bg-soft flex items-center justify-center p-6 font-luckiest text-foreground'>
+
       {/* BACK BUTTON */}
       <div className='fixed top-6 left-6 md:top-10 md:left-10 z-50'>
         <Link href='/'>
@@ -167,7 +168,8 @@ const UserProfilePage = () => {
                 {user?.codename || 'COMMANDER'}
               </h2>
               <p className='text-light-bronze text-xl uppercase opacity-80 flex items-center gap-2'>
-                <Award size={20} className='text-primary' /> {rank}
+                <Award size={20} className='text-primary' />
+                LVL {levelInfo.level} — {levelInfo.name}
               </p>
               <p className='text-sm mt-2 font-bold opacity-50 uppercase'>
                 Active Since: {joined}
@@ -183,27 +185,51 @@ const UserProfilePage = () => {
             </div>
           </div>
 
-          {/* STAT GRID */}
-          <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mt-10'>
-            {/* Total Quests  */}
+          {/* XP LEVEL PROGRESS BAR */}
+          <div className='mt-6 border-4 border-black rounded-2xl p-4 bg-soft shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+            <div className='flex items-center justify-between mb-2'>
+              <span className='text-sm uppercase flex items-center gap-1'>
+                <ZapIcon size={14} className='text-primary' /> LVL {levelInfo.level} — {levelInfo.name}
+              </span>
+              <span className='text-xs opacity-60 uppercase'>
+                {levelInfo.nextLvl
+                  ? `${stats.xp} / ${levelInfo.nextLvl.minXP} XP → LVL ${levelInfo.level + 1}`
+                  : 'MAX LEVEL REACHED'}
+              </span>
+            </div>
+            <div className='h-6 border-2 border-black rounded-lg bg-white overflow-hidden'>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${levelInfo.progress}%` }}
+                transition={{ duration: 1.2, ease: 'easeOut' }}
+                className='h-full bg-primary rounded-md'
+              />
+            </div>
+            <div className='flex justify-between mt-1 text-[10px] opacity-40 uppercase'>
+              {XP_LEVELS.map(l => (
+                <span key={l.level} className={l.level === levelInfo.level ? 'text-primary opacity-100' : ''}>
+                  {l.level}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* STAT GRID — colors unchanged */}
+          <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mt-6'>
             <div className='bg-[#faedcd] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
-                <Target size={16} />{' '}
-                <span className='text-xs uppercase'>Total Quests</span>
+                <Target size={16} /> <span className='text-xs uppercase'>Total Quests</span>
               </div>
               <p className='text-3xl'>{stats.missions}</p>
             </div>
 
-            {/* Success Rate*/}
             <div className='bg-[#ccd5ae] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
-                <Zap size={16} />{' '}
-                <span className='text-xs uppercase'>Success Rate</span>
+                <Zap size={16} /> <span className='text-xs uppercase'>Success Rate</span>
               </div>
               <p className='text-3xl'>{stats.accuracy}</p>
             </div>
 
-            {/* Streak */}
             <div className='bg-[#f07167] border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <div className='flex items-center gap-2 mb-1 opacity-70'>
                 <Image
@@ -221,11 +247,11 @@ const UserProfilePage = () => {
           </div>
 
           {/* CREDENTIALS */}
-          <div className='mt-10 border-t-4 border-black pt-6 '>
+          <div className='mt-10 border-t-4 border-black pt-6'>
             <h3 className='text-xl uppercase mb-4'>Credentials</h3>
             <div className='bg-soft border-4 border-black p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
               <span className='opacity-60 uppercase'>Intel (Email)</span>
-              <span className=' font-bold underline'>{user?.email || '—'}</span>
+              <span className='font-bold underline'>{user?.email || '—'}</span>
             </div>
           </div>
         </div>

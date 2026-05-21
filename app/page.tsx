@@ -4,20 +4,13 @@ import { CalendarDaysIcon } from '@/components/ui/calendar-days';
 import { CheckCheckIcon } from '@/components/ui/check-check';
 import { DeleteIcon } from '@/components/ui/delete';
 import { ChevronDownIcon } from '@/components/ui/chevron-down';
-import {
-  LayoutDashboardIcon,
-  UserIcon,
-  LogInIcon,
-  LogOutIcon,
-  Check,
-} from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { LayoutDashboardIcon, UserIcon, LogInIcon } from 'lucide-react';
+import { CheckIcon } from '@/components/ui/check';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
-import { CheckIcon } from '@/components/ui/check';
 
 interface Task {
   id?: string;
@@ -26,30 +19,46 @@ interface Task {
   completed: boolean;
   priority: 'None' | 'Low' | 'Mid' | 'High';
   duration: string;
+  created_at?: string;
 }
 
 const Page = () => {
-  const { isLoggedIn, isLoading, user, logout } = useAuth();
-  const router = useRouter();
+  const { isLoggedIn, isLoading, user } = useAuth();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  // Create supabase client once using ref to avoid re-renders
+  const supabaseRef = useRef(
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    ),
   );
+  const supabase = supabaseRef.current;
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [date, setDate] = useState('');
   const [currentTime, setCurrentTime] = useState('');
   const [yesterdayCount, setYesterdayCount] = useState(0);
 
-  const getToday = () => new Date().toLocaleDateString();
+  // Set date immediately on mount — no useEffect needed
+  const todayStr = new Date().toLocaleDateString();
 
   // 1. Clock Timer
   useEffect(() => {
+    // Set immediately
+    const now = new Date();
+    setCurrentTime(
+      now.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }),
+    );
+    setDate(new Date().toLocaleDateString());
+
     const timer = setInterval(() => {
-      const now = new Date();
+      const n = new Date();
       setCurrentTime(
-        now.toLocaleTimeString([], {
+        n.toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
@@ -59,14 +68,16 @@ const Page = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // 2. Fetch Tasks
+  // 2. Fetch Tasks + yesterday count + daily reset
   useEffect(() => {
-    const today = getToday();
-    setDate(today);
+    if (isLoading) return;
+
+    if (!isLoggedIn || !user?.id) {
+      setTasks([]);
+      return;
+    }
 
     const fetchQuests = async () => {
-      if (!user?.id) return;
-
       const { data, error } = await supabase
         .from('quests')
         .select('*')
@@ -78,18 +89,57 @@ const Page = () => {
         return;
       }
 
-      // Fix: always start with empty array, never force a blank row
-      setTasks(data || []);
+      if (!data) return;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      // Count yesterday's completed tasks
+      const yesterdayDone = data.filter((q) => {
+        const d = new Date(q.created_at);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() === yesterday.getTime() && q.completed;
+      }).length;
+      setYesterdayCount(yesterdayDone);
+
+      // Daily reset — mark old incomplete tasks as 'Not Started'
+      // Only reset tasks from previous days that are not done
+      const staleIds = data
+        .filter((q) => {
+          const d = new Date(q.created_at);
+          d.setHours(0, 0, 0, 0);
+          return (
+            d.getTime() < today.getTime() &&
+            !q.completed &&
+            q.status !== 'Not Started'
+          );
+        })
+        .map((q) => q.id);
+
+      if (staleIds.length > 0) {
+        await supabase
+          .from('quests')
+          .update({ status: 'Not Started', completed: false })
+          .in('id', staleIds);
+      }
+
+      // Show only today's tasks
+      const todayTasks = data.filter((q) => {
+        const d = new Date(q.created_at);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() === today.getTime();
+      });
+
+      setTasks(todayTasks);
     };
 
-    if (isLoggedIn && !isLoading) {
-      fetchQuests();
-    } else if (!isLoading && !isLoggedIn) {
-      setTasks([]); // guests start with empty board too
-    }
+    fetchQuests();
   }, [isLoggedIn, isLoading, user]);
 
-  // 3. Add Task — always adds a new row
+  // 3. Add Task
   const addTask = async () => {
     if (!isLoggedIn || !user) {
       setTasks([
@@ -123,16 +173,19 @@ const Page = () => {
       console.error('Add task error:', error.message);
       return;
     }
-
     if (data) setTasks([...tasks, data[0]]);
   };
 
   // 4. Update Task
-  const updateTask = async (index: number, key: keyof Task, value: any) => {
+  const updateTask = async (
+    index: number,
+    key: keyof Task,
+    value: string | boolean,
+  ) => {
     const updated = [...tasks];
     const taskToUpdate = updated[index];
 
-    (updated[index] as any)[key] = value;
+    (updated[index] as unknown as Record<string, unknown>)[key] = value;
     if (key === 'status') updated[index].completed = value === 'Done';
     if (key === 'completed')
       updated[index].status = value ? 'Done' : 'In Progress';
@@ -155,7 +208,6 @@ const Page = () => {
   const removeTask = async (index: number) => {
     const taskToDelete = tasks[index];
     setTasks(tasks.filter((_, i) => i !== index));
-
     if (isLoggedIn && taskToDelete.id) {
       await supabase.from('quests').delete().eq('id', taskToDelete.id);
     }
@@ -188,49 +240,47 @@ const Page = () => {
   return (
     <div className='p-6 md:p-10 min-h-screen bg-soft text-foreground relative pb-24 font-luckiest overflow-x-hidden'>
       {/* AUTH BUTTON */}
-
       <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50'>
         <AnimatePresence mode='wait'>
-          {/* Only render and animate once loading is fully done, exactly like the dashboard logic */}
           {!isLoading && (
             <motion.div
-              key={isLoggedIn ? 'commander-ready' : 'signin-ready'}
+              key={isLoggedIn ? 'logged-in' : 'logged-out'}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 180 }}
             >
               {isLoggedIn ? (
-                <Link href='/user' passHref legacyBehavior>
-                  <motion.a
+                <Link href='/user'>
+                  <motion.div
                     whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
                     whileTap={{ scale: 0.95 }}
-                    className='flex items-center gap-3 bg-white border-4 border-black p-3 px-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black no-underline select-none'
+                    className='flex items-center gap-3 bg-white border-4 border-black p-3 px-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black select-none'
                   >
                     <UserIcon
                       size={24}
                       className='group-hover:text-primary group-hover:rotate-12 transition-transform'
                     />
-                    <span className='text-md md:text-xl uppercase font-luckiest tracking-tight'>
+                    <span className='text-md md:text-xl uppercase tracking-tight'>
                       {user?.codename || 'COMMANDER'}
                     </span>
-                  </motion.a>
+                  </motion.div>
                 </Link>
               ) : (
-                <Link href='/login' passHref legacyBehavior>
-                  <motion.a
+                <Link href='/login'>
+                  <motion.div
                     whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
                     whileTap={{ scale: 0.95 }}
-                    className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black no-underline select-none'
+                    className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black select-none'
                   >
                     <LogInIcon
                       size={28}
                       className='group-hover:translate-x-1 transition-transform'
                     />
-                    <span className='text-md md:text-xl uppercase font-luckiest tracking-tight'>
+                    <span className='text-md md:text-xl uppercase tracking-tight'>
                       Sign In
                     </span>
-                  </motion.a>
+                  </motion.div>
                 </Link>
               )}
             </motion.div>
@@ -243,7 +293,7 @@ const Page = () => {
         {currentTime}
       </motion.div>
 
-      {/* DASHBOARD BUTTON - Only show when logged in */}
+      {/* DASHBOARD BUTTON */}
       <AnimatePresence>
         {!isLoading && isLoggedIn && (
           <motion.div
@@ -256,7 +306,7 @@ const Page = () => {
               <motion.div
                 whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
                 whileTap={{ scale: 0.95 }}
-                className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group transition-colors'
+                className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
               >
                 <LayoutDashboardIcon
                   size={28}
@@ -279,7 +329,10 @@ const Page = () => {
 
       <div className='flex items-center justify-center gap-2 mb-10 text-lg opacity-80'>
         <CheckCheckIcon size={20} />
-        <span>Yesterday: {yesterdayCount} tasks finished</span>
+        <span>
+          Yesterday: {yesterdayCount} {yesterdayCount === 1 ? 'task' : 'tasks'}{' '}
+          finished
+        </span>
       </div>
 
       {/* MISSION TABLE */}
@@ -296,7 +349,7 @@ const Page = () => {
             </div>
 
             <AnimatePresence mode='popLayout'>
-              {tasks.length === 0 && (
+              {tasks.length === 0 && !isLoading && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -353,9 +406,7 @@ const Page = () => {
                     <select
                       className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center'
                       value={item.status}
-                      onChange={(e) =>
-                        updateTask(i, 'status', e.target.value as any)
-                      }
+                      onChange={(e) => updateTask(i, 'status', e.target.value)}
                     >
                       <option value='Not Started'>Not Started</option>
                       <option value='In Progress'>In Progress</option>

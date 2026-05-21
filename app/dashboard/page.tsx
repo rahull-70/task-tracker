@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -18,6 +18,32 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
+
+// XP Level system — easy to extend later
+const XP_LEVELS = [
+  { level: 1, name: 'ROOKIE', minXP: 0 },
+  { level: 2, name: 'SCOUT', minXP: 200 },
+  { level: 3, name: 'SOLDIER', minXP: 500 },
+  { level: 4, name: 'CORPORAL', minXP: 1000 },
+  { level: 5, name: 'SERGEANT', minXP: 2000 },
+  { level: 6, name: 'LIEUTENANT', minXP: 3500 },
+  { level: 7, name: 'CAPTAIN', minXP: 5500 },
+  { level: 8, name: 'MAJOR', minXP: 8000 },
+  { level: 9, name: 'COLONEL', minXP: 11000 },
+  { level: 10, name: 'COMMANDANT', minXP: 15000 },
+];
+
+const getLevel = (xp: number) => {
+  let current = XP_LEVELS[0];
+  for (const lvl of XP_LEVELS) {
+    if (xp >= lvl.minXP) current = lvl;
+  }
+  const nextLvl = XP_LEVELS.find((l) => l.minXP > xp);
+  const progress = nextLvl
+    ? Math.round(((xp - current.minXP) / (nextLvl.minXP - current.minXP)) * 100)
+    : 100;
+  return { ...current, nextLvl, progress };
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isLoggedIn, isLoading } = useAuth();
@@ -42,10 +68,13 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const supabaseRef = useRef(
+    createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    ),
   );
+  const supabase = supabaseRef.current;
 
   const [mounted, setMounted] = useState(false);
   const [priorityData, setPriorityData] = useState({
@@ -54,7 +83,15 @@ const Dashboard = () => {
     Low: 0,
     None: 0,
   });
-  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [historyData, setHistoryData] = useState<
+    {
+      date: string;
+      total: number;
+      completed: number;
+      percent: number;
+      isToday: boolean;
+    }[]
+  >([]);
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
@@ -62,9 +99,13 @@ const Dashboard = () => {
     streak: 0,
     xp: 0,
   });
+  const levelInfo = getLevel(stats.xp);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!user?.id) return;
 
     const fetchData = async () => {
@@ -76,25 +117,28 @@ const Dashboard = () => {
 
       if (!quests) return;
 
-      // Today's stats — all quests created today
       const todayStr = new Date().toLocaleDateString();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Today's quests
       const todayQuests = quests.filter(
         (q) => new Date(q.created_at).toLocaleDateString() === todayStr,
       );
       const totalToday = todayQuests.length;
       const completedToday = todayQuests.filter((q) => q.completed).length;
 
-      // Priority breakdown (all quests ever)
+      // Priority breakdown
       const priorities = { High: 0, Mid: 0, Low: 0, None: 0 };
-      quests.forEach((q: any) => {
+      quests.forEach((q) => {
         const p = q.priority as keyof typeof priorities;
         if (p in priorities) priorities[p]++;
       });
       setPriorityData(priorities);
 
-      // Group by date for history
+      // Group by date
       const byDate: Record<string, { total: number; completed: number }> = {};
-      quests.forEach((q: any) => {
+      quests.forEach((q) => {
         const d = new Date(q.created_at).toLocaleDateString();
         if (!byDate[d]) byDate[d] = { total: 0, completed: 0 };
         byDate[d].total++;
@@ -109,13 +153,11 @@ const Dashboard = () => {
       }));
       setHistoryData(history);
 
-      // Streak — consecutive days with at least 1 completed quest
+      // Streak
       const sortedDates = Object.keys(byDate).sort(
         (a, b) => new Date(b).getTime() - new Date(a).getTime(),
       );
       let streak = 0;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       for (let i = 0; i < sortedDates.length; i++) {
         const d = new Date(sortedDates[i]);
         d.setHours(0, 0, 0, 0);
@@ -127,6 +169,7 @@ const Dashboard = () => {
       }
 
       const lifetimeCompleted = quests.filter((q) => q.completed).length;
+      const xp = lifetimeCompleted * 100;
 
       setStats({
         total: totalToday,
@@ -134,19 +177,19 @@ const Dashboard = () => {
         rate:
           totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0,
         streak,
-        xp: lifetimeCompleted * 100,
+        xp,
       });
     };
 
     fetchData();
-  }, [user]);
+  }, [user, supabase]);
 
   const getBarDecoration = (
-    dayData: any,
+    dayData: { percent: number; isToday: boolean } | undefined,
     barHeight: number,
     type: 'weekly' | 'monthly',
   ) => {
-    let baseColor = dayData?.percent > 70 ? '#ccd5ae' : '#C8C3C1';
+    let baseColor = (dayData?.percent ?? 0 > 70) ? '#ccd5ae' : '#C8C3C1';
     if (dayData?.isToday) baseColor = '#FFC88A';
     return {
       height: `${Math.max(barHeight, dayData ? (type === 'weekly' ? 8 : 12) : 0)}%`,
@@ -208,11 +251,7 @@ const Dashboard = () => {
             </span>
             <span className='opacity-30'>|</span>
             <span className='text-light-bronze'>
-              {stats.xp > 5000
-                ? 'COMMANDANT'
-                : stats.xp > 1000
-                  ? 'VETERAN'
-                  : 'ROOKIE'}
+              LVL {levelInfo.level} {levelInfo.name}
             </span>
             <span className='opacity-30'>|</span>
             <span className='bg-soft px-2 py-0.5 border-2 border-black rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs md:text-sm'>
@@ -246,7 +285,7 @@ const Dashboard = () => {
             className='absolute right-[-20px] top-[-20px] opacity-20 rotate-12'
             size={200}
           />
-          <h2 className='text-3xl mb-4 uppercase'>Quest Success Rate</h2>
+          <h2 className='text-3xl mb-4 uppercase'>Today's Success Rate</h2>
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
@@ -264,10 +303,10 @@ const Dashboard = () => {
           </p>
         </motion.div>
 
-        {/* STAT CARDS — matching colors with user page */}
+        {/* STAT CARDS */}
         <div className='flex flex-col gap-6'>
           {[
-            {
+           {
               label: 'COMPLETED',
               val: stats.completed,
               color: '#ccd5ae', // green — matches user page success rate card
@@ -310,6 +349,48 @@ const Dashboard = () => {
             </motion.div>
           ))}
         </div>
+
+        {/* XP LEVEL PROGRESS */}
+        <motion.div
+          variants={itemVars}
+          className='md:col-span-3 bg-white p-8 rounded-3xl border-4 border-black shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]'
+        >
+          <h2 className='text-2xl mb-4 uppercase flex items-center gap-2'>
+            <ZapIcon size={24} /> Commander Rank
+          </h2>
+          <div className='flex items-center justify-between mb-3'>
+            <span className='text-xl'>
+              LVL {levelInfo.level} — {levelInfo.name}
+            </span>
+            <span className='text-sm opacity-60'>
+              {levelInfo.nextLvl
+                ? `${stats.xp} / ${levelInfo.nextLvl.minXP} XP → LVL ${levelInfo.level + 1}`
+                : 'MAX LEVEL'}
+            </span>
+          </div>
+          <div className='h-8 border-4 border-black rounded-xl bg-gray-100 overflow-hidden'>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${levelInfo.progress}%` }}
+              transition={{ duration: 1.2, ease: 'easeOut' }}
+              className='h-full bg-primary rounded-lg'
+            />
+          </div>
+          <div className='flex justify-between mt-2 text-xs opacity-50 uppercase'>
+            {XP_LEVELS.map((l) => (
+              <span
+                key={l.level}
+                className={
+                  l.level === levelInfo.level
+                    ? 'text-primary font-bold opacity-100'
+                    : ''
+                }
+              >
+                {l.level}
+              </span>
+            ))}
+          </div>
+        </motion.div>
 
         {/* PRIORITY LOADOUT */}
         <motion.div
