@@ -156,7 +156,7 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className='text-4xl sm:text-6xl md:text-8xl lg:text-[10rem] font-oi uppercase content-title-scale mt-6 mb-6 tracking-tight w-full break-words leading-[0.95]'>
+            className='text-6xl md:text-8xl lg:text-[10rem] font-oi uppercase content-title-scale mt-6 mb-6 tracking-tight w-full break-words leading-[0.95]'>
             Quest<br />Board
           </motion.h1>
 
