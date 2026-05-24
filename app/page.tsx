@@ -504,112 +504,115 @@ export default function LandingPage() {
       </section>
 
       {/* ── TESTIMONIALS — white ── */}
-      <section className='py-24 px-6 bg-white border-b-4 border-black'>
-        <div className='max-w-5xl mx-auto'>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className='text-center mb-12'
-          >
-            <Badge bg='bg-[#faedcd]'>
-              <UsersIcon size={10} /> Testimonials
-            </Badge>
-            <h2 className='text-4xl md:text-5xl font-oi uppercase mt-4'>
-              Commanders speak
-            </h2>
-          </motion.div>
-          <div className='grid md:grid-cols-3 gap-5'>
-            {[
-              {
-                name: 'GHOST_OPS',
-                rank: 'Captain',
-                text: '"QuestBoard turned my messy to-do list into a proper mission log. The streak system keeps me accountable every single day."',
-                bg: 'bg-[#faedcd]',
-              },
-              {
-                name: 'NOVA_STRIKE',
-                rank: 'Sergeant',
-                text: '"The XP system is genuinely motivating. I went from Level 1 to Level 6 in two months just by being consistent."',
-                bg: 'bg-[#ccd5ae]',
-              },
-              {
-                name: 'IRON_WOLF',
-                rank: 'Colonel',
-                text: '"Clean, fast, and fun to use. The stat center shows me exactly where I am productive and where I am slacking off."',
-                bg: 'bg-[#e9edc9]',
-              },
-            ].map((t, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                whileHover={{ y: -4 }}
-                className={`${t.bg} border-4 border-black rounded-2xl p-6 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]`}
-              >
-                <p className='font-sans text-sm opacity-65 leading-relaxed mb-5'>
-                  {t.text}
-                </p>
-                <div className='flex items-center gap-3'>
-                  <div className='w-9 h-9 bg-[#d4a373] border-2 border-black rounded-xl flex items-center justify-center'>
-                    <TrophyIcon size={16} />
-                  </div>
-                  <div>
-                    <p className='text-sm uppercase leading-tight'>{t.name}</p>
-                    <p className='text-[10px] opacity-40 uppercase'>{t.rank}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── FINAL CTA — light bronze warm ── */}
-      <section className='py-28 px-6 bg-[#d4a373] border-b-4 border-black'>
-        <div className='max-w-3xl mx-auto text-center'>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className='text-6xl md:text-8xl font-oi uppercase mb-5 leading-none'>
-              Ready
-              <br />
-              Commander?
-            </h2>
-            <p className='font-sans opacity-65 mb-10 text-lg'>
-              Join hundreds of commanders crushing their daily missions.
-            </p>
-            <div className='flex flex-col sm:flex-row gap-4 justify-center'>
-              <Link href='/sign-in'>
-                <motion.div
-                  whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
-                  whileTap={{ scale: 0.95 }}
-                  className='inline-flex items-center gap-3 bg-[#fefae0] border-4 border-black px-10 py-5 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-2xl uppercase cursor-pointer'
-                >
-                  Start Free <ArrowRightIcon size={24} />
-                </motion.div>
-              </Link>
-              <Link href='/premium'>
-                <motion.div
-                  whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
-                  whileTap={{ scale: 0.95 }}
-                  className='inline-flex items-center gap-3 bg-black text-[#fefae0] border-4 border-black px-10 py-5 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-2xl uppercase cursor-pointer'
-                >
-                  <StarIcon size={22} /> Go Premium
-                </motion.div>
-              </Link>
+      <section className='py-16 sm:py-24 px-4 sm:px-6 bg-white border-b-4 border-black w-full overflow-hidden'>
+  <div className='max-w-5xl mx-auto w-full'>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className='text-center mb-10 sm:mb-12 flex flex-col items-center w-full px-2'
+    >
+      <Badge bg='bg-[#faedcd]'>
+        <UsersIcon size={10} /> Testimonials
+      </Badge>
+      <h2 className='text-3xl sm:text-4xl md:text-5xl font-oi uppercase mt-4 max-w-full leading-[1.1] tracking-tight break-words text-center'>
+        Commanders speak
+      </h2>
+    </motion.div>
+    
+    <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-5 w-full'>
+      {[
+        {
+          name: 'GHOST_OPS',
+          rank: 'Captain',
+          text: '"QuestBoard turned my messy to-do list into a proper mission log. The streak system keeps me accountable every single day."',
+          bg: 'bg-[#faedcd]',
+        },
+        {
+          name: 'NOVA_STRIKE',
+          rank: 'Sergeant',
+          text: '"The XP system is genuinely motivating. I went from Level 1 to Level 6 in two months just by being consistent."',
+          bg: 'bg-[#ccd5ae]',
+        },
+        {
+          name: 'IRON_WOLF',
+          rank: 'Colonel',
+          text: '"Clean, fast, and fun to use. The stat center shows me exactly where I am productive and where I am slacking off."',
+          bg: 'bg-[#e9edc9]',
+        },
+      ].map((t, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: i * 0.1 }}
+          whileHover={{ y: -4 }}
+          className={`${t.bg} border-4 border-black rounded-2xl p-5 sm:p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] sm:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] flex flex-col justify-between min-w-0`}
+        >
+          <p className='font-sans text-xs sm:text-sm opacity-70 leading-relaxed mb-5 font-medium'>
+            {t.text}
+          </p>
+          <div className='flex items-center gap-3 mt-auto border-t-2 border-black/5 pt-3'>
+            <div className='w-9 h-9 bg-[#d4a373] border-2 border-black rounded-xl flex items-center justify-center flex-shrink-0'>
+              <TrophyIcon size={16} />
             </div>
-            <p className='font-sans text-xs opacity-40 mt-5 uppercase tracking-widest'>
-              Free forever · No credit card needed
-            </p>
-          </motion.div>
-        </div>
-      </section>
+            <div className="min-w-0 flex-1">
+              <p className='text-xs sm:text-sm uppercase leading-tight font-black truncate'>{t.name}</p>
+              <p className='text-[10px] opacity-50 uppercase tracking-tight font-bold mt-0.5 truncate'>{t.rank}</p>
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  </div>
+</section>
 
+        {/* ── FINAL CTA — light bronze warm ── */}
+       <section className='py-16 sm:py-28 px-4 sm:px-6 bg-[#d4a373] border-b-4 border-black w-full overflow-hidden text-center'>
+  <div className='max-w-3xl mx-auto w-full'>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="w-full flex flex-col items-center"
+    >
+      <h2 className='text-3xl sm:text-6xl md:text-8xl font-oi uppercase mb-5 leading-[0.95] tracking-tighter max-w-full break-words text-center'>
+        Ready
+        <br />
+        Commander?
+      </h2>
+      <p className='font-sans opacity-75 mb-8 sm:mb-10 text-sm sm:text-lg font-medium max-w-xl px-2 leading-relaxed'>
+        Join hundreds of commanders crushing their daily missions.
+      </p>
+      
+      <div className='flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-md sm:max-w-none px-4 sm:px-0'>
+        <Link href='/sign-in' className="w-full sm:w-auto">
+          <motion.div
+            whileHover={{ scale: 1.03, x: 4, y: 4, boxShadow: 'none' }}
+            whileTap={{ scale: 0.97 }}
+            className='w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-[#fefae0] border-4 border-black px-6 sm:px-10 py-4 sm:py-5 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-lg sm:text-2xl uppercase cursor-pointer font-luckiest leading-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none'
+          >
+            Start Free <ArrowRightIcon size={20} className="flex-shrink-0" />
+          </motion.div>
+        </Link>
+        <Link href='/premium' className="w-full sm:w-auto">
+          <motion.div
+            whileHover={{ scale: 1.03, x: 4, y: 4, boxShadow: 'none' }}
+            whileTap={{ scale: 0.97 }}
+            className='w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-black text-[#fefae0] border-4 border-black px-6 sm:px-10 py-4 sm:py-5 rounded-2xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-lg sm:text-2xl uppercase cursor-pointer font-luckiest leading-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none'
+          >
+            <StarIcon size={18} className="fill-current flex-shrink-0" /> Go Premium
+          </motion.div>
+        </Link>
+      </div>
+      
+      <p className='font-sans text-[10px] sm:text-xs opacity-50 mt-6 uppercase tracking-widest font-bold'>
+        Free forever · No credit card needed
+      </p>
+    </motion.div>
+  </div>
+</section>
       {/* FOOTER — cornsilk */}
       <footer className='border-t-4 border-black bg-[#fefae0] px-6 py-8'>
         <div className='max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4'>
