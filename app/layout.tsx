@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Oi, Luckiest_Guy, Inter } from 'next/font/google';
+import { Oi, Luckiest_Guy, Inter,Chicle } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { AuthProvider } from '@/context/AuthContext';
@@ -16,6 +16,12 @@ const luckiestGuy = Luckiest_Guy({
   weight: '400',
   subsets: ['latin'],
   variable: '--font-luckiest-guy',
+});
+
+const chicle = Chicle({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-chicle',
 });
 
 export const metadata: Metadata = {
@@ -59,6 +65,7 @@ export default function RootLayout({
         'antialiased',
         oi.variable,
         luckiestGuy.variable,
+        chicle.variable,
         'font-sans',
         inter.variable,
       )}

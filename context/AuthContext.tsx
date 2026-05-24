@@ -13,6 +13,7 @@ interface AuthContextType {
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<{ error?: string }>;
   register: (codename: string, email: string, password: string) => Promise<{ error?: string }>;
+  resetPassword: (email: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -23,13 +24,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  // On mount, hit /api/auth/me — the httpOnly cookie is sent automatically
   useEffect(() => {
     const checkSession = async () => {
       try {
         const res = await fetch('/api/auth/me');
         const data = await res.json();
-
         if (data.user) {
           setUser(data.user);
           setIsLoggedIn(true);
@@ -40,7 +39,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       }
     };
-
     checkSession();
   }, []);
 
@@ -51,11 +49,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
       const data = await res.json();
-
       if (!res.ok) return { error: data.error || 'Login failed.' };
-
       setUser(data);
       setIsLoggedIn(true);
       return {};
@@ -64,24 +59,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (
-    codename: string,
-    email: string,
-    password: string
-  ): Promise<{ error?: string }> => {
+  const register = async (codename: string, email: string, password: string): Promise<{ error?: string }> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codename, email, password }),
       });
-
       const data = await res.json();
-
       if (!res.ok) return { error: data.error || 'Registration failed.' };
-
       setUser(data);
       setIsLoggedIn(true);
+      return {};
+    } catch {
+      return { error: 'Network error. Try again.' };
+    }
+  };
+
+  const resetPassword = async (email: string): Promise<{ error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'Reset failed.' };
       return {};
     } catch {
       return { error: 'Network error. Try again.' };
@@ -95,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, register, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, register, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

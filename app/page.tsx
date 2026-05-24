@@ -1,464 +1,627 @@
 'use client';
-
-import { CalendarDaysIcon } from '@/components/ui/calendar-days';
-import { CheckCheckIcon } from '@/components/ui/check-check';
-import { DeleteIcon } from '@/components/ui/delete';
-import { ChevronDownIcon } from '@/components/ui/chevron-down';
-import { LayoutDashboardIcon, UserIcon, LogInIcon } from 'lucide-react';
-import { CheckIcon } from '@/components/ui/check';
-import React, { useEffect, useRef, useState } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/context/AuthContext';
-import { createBrowserClient } from '@supabase/ssr';
+import { useRef } from 'react';
+import {
+  ZapIcon,
+  FlameIcon,
+  BarChart3Icon,
+  CalendarIcon,
+  ShieldCheckIcon,
+  StarIcon,
+  ArrowRightIcon,
+  CheckIcon,
+  TrophyIcon,
+  TargetIcon,
+  UsersIcon,
+  ClockIcon,
+  TreesIcon,
+} from 'lucide-react';
 
-interface Task {
-  id?: string;
-  task: string;
-  status: 'Not Started' | 'In Progress' | 'Done';
-  completed: boolean;
-  priority: 'None' | 'Low' | 'Mid' | 'High';
-  duration: string;
-  created_at?: string;
-}
+const Badge = ({
+  children,
+  bg = 'bg-[#ccd5ae]',
+}: {
+  children: React.ReactNode;
+  bg?: string;
+}) => (
+  <span
+    className={`inline-flex items-center gap-1.5 ${bg} text-black border-2 border-black px-3 py-1 rounded-full text-xs uppercase tracking-widest font-luckiest`}
+  >
+    {children}
+  </span>
+);
 
-const Page = () => {
-  const { isLoggedIn, isLoading, user } = useAuth();
+const FeatureCard = ({
+  icon,
+  title,
+  desc,
+  bg,
+  iconBg,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  bg: string;
+  iconBg: string;
+}) => (
+  <motion.div
+    whileHover={{ scale: 1.02, y: -5 }}
+    transition={{ type: 'spring', stiffness: 300 }}
+    className={`${bg} border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-3`}
+  >
+    <div
+      className={`w-12 h-12 ${iconBg} border-2 border-black rounded-xl flex items-center justify-center`}
+    >
+      {icon}
+    </div>
+    <h3 className='text-xl font-luckiest uppercase'>{title}</h3>
+    <p className='text-sm font-sans opacity-60 leading-relaxed'>{desc}</p>
+  </motion.div>
+);
 
-  // Create supabase client once using ref to avoid re-renders
-  const supabaseRef = useRef(
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    ),
-  );
-  const supabase = supabaseRef.current;
-
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [date, setDate] = useState('');
-  const [currentTime, setCurrentTime] = useState('');
-  const [yesterdayCount, setYesterdayCount] = useState(0);
-
-  // Set date immediately on mount — no useEffect needed
-  const todayStr = new Date().toLocaleDateString();
-
-  // 1. Clock Timer
-  useEffect(() => {
-    // Set immediately
-    const now = new Date();
-    setCurrentTime(
-      now.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-    );
-    setDate(new Date().toLocaleDateString());
-
-    const timer = setInterval(() => {
-      const n = new Date();
-      setCurrentTime(
-        n.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        }),
-      );
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 2. Fetch Tasks + yesterday count + daily reset
-  useEffect(() => {
-    if (isLoading) return;
-
-    if (!isLoggedIn || !user?.id) {
-      setTasks([]);
-      return;
-    }
-
-    const fetchQuests = async () => {
-      const { data, error } = await supabase
-        .from('quests')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error:', error.message);
-        return;
-      }
-
-      if (!data) return;
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      // Count yesterday's completed tasks
-      const yesterdayDone = data.filter((q) => {
-        const d = new Date(q.created_at);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() === yesterday.getTime() && q.completed;
-      }).length;
-      setYesterdayCount(yesterdayDone);
-
-      // Daily reset — mark old incomplete tasks as 'Not Started'
-      // Only reset tasks from previous days that are not done
-      const staleIds = data
-        .filter((q) => {
-          const d = new Date(q.created_at);
-          d.setHours(0, 0, 0, 0);
-          return (
-            d.getTime() < today.getTime() &&
-            !q.completed &&
-            q.status !== 'Not Started'
-          );
-        })
-        .map((q) => q.id);
-
-      if (staleIds.length > 0) {
-        await supabase
-          .from('quests')
-          .update({ status: 'Not Started', completed: false })
-          .in('id', staleIds);
-      }
-
-      // Show only today's tasks
-      const todayTasks = data.filter((q) => {
-        const d = new Date(q.created_at);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() === today.getTime();
-      });
-
-      setTasks(todayTasks);
-    };
-
-    fetchQuests();
-  }, [isLoggedIn, isLoading, user]);
-
-  // 3. Add Task
-  const addTask = async () => {
-    if (!isLoggedIn || !user) {
-      setTasks([
-        ...tasks,
-        {
-          task: '',
-          status: 'Not Started',
-          completed: false,
-          priority: 'None',
-          duration: '',
-        },
-      ]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('quests')
-      .insert([
-        {
-          user_id: user.id,
-          task: '',
-          status: 'Not Started',
-          priority: 'None',
-          duration: '',
-          completed: false,
-        },
-      ])
-      .select();
-
-    if (error) {
-      console.error('Add task error:', error.message);
-      return;
-    }
-    if (data) setTasks([...tasks, data[0]]);
-  };
-
-  // 4. Update Task
-  const updateTask = async (
-    index: number,
-    key: keyof Task,
-    value: string | boolean,
-  ) => {
-    const updated = [...tasks];
-    const taskToUpdate = updated[index];
-
-    (updated[index] as unknown as Record<string, unknown>)[key] = value;
-    if (key === 'status') updated[index].completed = value === 'Done';
-    if (key === 'completed')
-      updated[index].status = value ? 'Done' : 'In Progress';
-
-    setTasks(updated);
-
-    if (isLoggedIn && taskToUpdate.id) {
-      await supabase
-        .from('quests')
-        .update({
-          [key]: value,
-          status: updated[index].status,
-          completed: updated[index].completed,
-        })
-        .eq('id', taskToUpdate.id);
-    }
-  };
-
-  // 5. Remove Task
-  const removeTask = async (index: number) => {
-    const taskToDelete = tasks[index];
-    setTasks(tasks.filter((_, i) => i !== index));
-    if (isLoggedIn && taskToDelete.id) {
-      await supabase.from('quests').delete().eq('id', taskToDelete.id);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Done':
-        return 'bg-[#ccd5ae]';
-      case 'In Progress':
-        return 'bg-[#d8e2dc]';
-      default:
-        return 'bg-[#fefae0]';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High':
-        return 'bg-[#ffadad]';
-      case 'Mid':
-        return 'bg-[#ffd6a5]';
-      case 'Low':
-        return 'bg-[#caffbf]';
-      default:
-        return 'bg-transparent';
-    }
-  };
+export default function LandingPage() {
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: heroRef });
+  const y = useTransform(scrollYProgress, [0, 1], [0, -60]);
 
   return (
-    <div className='p-6 md:p-10 min-h-screen bg-soft text-foreground relative pb-24 font-luckiest overflow-x-hidden'>
-      {/* AUTH BUTTON */}
-      <div className='absolute top-6 left-6 md:top-10 md:left-10 z-50'>
-        <AnimatePresence mode='wait'>
-          {!isLoading && (
-            <motion.div
-              key={isLoggedIn ? 'logged-in' : 'logged-out'}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 180 }}
+    <div className='min-h-screen font-luckiest overflow-x-hidden'>
+      {/* NAV — white */}
+      <nav className='fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b-4 border-black'>
+        <div className='max-w-6xl mx-auto flex items-center justify-between px-6 py-3'>
+          <span className='text-2xl font-oi uppercase tracking-wide'>
+            QuestBoard
+          </span>
+          <div className='hidden md:flex items-center gap-5 text-sm uppercase opacity-50 font-luckiest'>
+            <Link
+              href='#features'
+              className='hover:opacity-100 transition-opacity cursor-pointer'
             >
-              {isLoggedIn ? (
-                <Link href='/user'>
-                  <motion.div
-                    whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-                    whileTap={{ scale: 0.95 }}
-                    className='flex items-center gap-3 bg-white border-4 border-black p-3 px-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black select-none'
-                  >
-                    <UserIcon
-                      size={24}
-                      className='group-hover:text-primary group-hover:rotate-12 transition-transform'
-                    />
-                    <span className='text-md md:text-xl uppercase tracking-tight'>
-                      {user?.codename || 'COMMANDER'}
-                    </span>
-                  </motion.div>
-                </Link>
-              ) : (
-                <Link href='/login'>
-                  <motion.div
-                    whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-                    whileTap={{ scale: 0.95 }}
-                    className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group text-black select-none'
-                  >
-                    <LogInIcon
-                      size={28}
-                      className='group-hover:translate-x-1 transition-transform'
-                    />
-                    <span className='text-md md:text-xl uppercase tracking-tight'>
-                      Sign In
-                    </span>
-                  </motion.div>
-                </Link>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* CLOCK */}
-      <motion.div className='absolute top-6 right-6 md:top-10 md:right-10 text-2xl text-primary md:text-3xl'>
-        {currentTime}
-      </motion.div>
-
-      {/* DASHBOARD BUTTON */}
-      <AnimatePresence>
-        {!isLoading && isLoggedIn && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className='fixed bottom-6 left-6 md:bottom-10 md:left-10 z-50'
-          >
-            <Link href='/dashboard'>
+              Features
+            </Link>
+            <Link
+              href='#pricing'
+              className='hover:opacity-100 transition-opacity cursor-pointer'
+            >
+              Pricing
+            </Link>
+            <Link
+              href='/garden'
+              className='hover:opacity-100 transition-opacity cursor-pointer'
+            >
+              Garden
+            </Link>
+          </div>
+          <div className='flex items-center gap-3'>
+            <Link href='/login'>
               <motion.div
-                whileHover={{ scale: 1.05, x: 5, y: 5, boxShadow: 'none' }}
-                whileTap={{ scale: 0.95 }}
-                className='flex items-center gap-3 bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className='px-4 py-2 border-4 border-black rounded-xl bg-[#fefae0] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-sm uppercase cursor-pointer'
               >
-                <LayoutDashboardIcon
-                  size={28}
-                  className='group-hover:rotate-12 transition-transform'
-                />
-                <span className='text-md md:text-xl uppercase'>Dashboard</span>
+                Sign In
+              </motion.div>
+            </Link>
+            <Link href='/sign-in'>
+              <motion.div
+                whileHover={{ scale: 1.04, x: 2, y: 2, boxShadow: 'none' }}
+                whileTap={{ scale: 0.96 }}
+                className='px-4 py-2 border-4 border-black rounded-xl bg-[#d4a373] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-sm uppercase cursor-pointer'
+              >
+                Get Started
+              </motion.div>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── HERO — warm cornsilk ── */}
+      <section
+        ref={heroRef}
+        className='min-h-screen bg-[#fefae0] flex flex-col items-center justify-center text-center px-6 pt-24 pb-16 relative overflow-hidden'
+      >
+        {/* Decorative blobs */}
+        <div className='absolute top-32 left-16 w-56 h-56 bg-[#d4a373]/15 rounded-full blur-3xl pointer-events-none' />
+        <div className='absolute bottom-24 right-16 w-64 h-64 bg-[#ccd5ae]/25 rounded-full blur-3xl pointer-events-none' />
+        <div className='absolute top-1/3 left-1/3 w-32 h-32 bg-[#faedcd]/40 rounded-full blur-2xl pointer-events-none' />
+
+        <motion.div style={{ y }} className='relative z-10 max-w-4xl mx-auto'>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Badge bg='bg-white'>
+              <ZapIcon size={10} /> Track · Complete · Level Up
+            </Badge>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className='text-7xl md:text-[10rem] font-oi uppercase leading-none mt-5 mb-5'
+          >
+            Quest
+            <br />
+            Board
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className='text-base md:text-xl font-sans opacity-55 max-w-lg mx-auto mb-10 leading-relaxed'
+          >
+            Turn your daily tasks into missions. Earn XP, build streaks, and
+            level up your productivity — one quest at a time.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className='flex flex-col sm:flex-row gap-4 justify-center'
+          >
+            <Link href='/sign-in'>
+              <motion.div
+                whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
+                whileTap={{ scale: 0.95 }}
+                className='flex items-center justify-center gap-2 bg-[#d4a373] border-4 border-black px-8 py-4 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-xl uppercase cursor-pointer'
+              >
+                Start Free <ArrowRightIcon size={20} />
+              </motion.div>
+            </Link>
+            <Link href='/board'>
+              <motion.div
+                whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
+                whileTap={{ scale: 0.95 }}
+                className='flex items-center justify-center gap-2 bg-white border-4 border-black px-8 py-4 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] text-xl uppercase cursor-pointer'
+              >
+                Open App
               </motion.div>
             </Link>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
 
-      <motion.h1 className='text-3xl md:text-7xl text-center mb-6 font-oi tracking-wide md:mt-0 mt-20 uppercase'>
-        QuestBoard
-      </motion.h1>
-
-      <div className='flex items-center justify-center gap-3 mb-2 text-2xl text-light-bronze'>
-        <CalendarDaysIcon size={28} /> <span>{date}</span>
-      </div>
-
-      <div className='flex items-center justify-center gap-2 mb-10 text-lg opacity-80'>
-        <CheckCheckIcon size={20} />
-        <span>
-          Yesterday: {yesterdayCount} {yesterdayCount === 1 ? 'task' : 'tasks'}{' '}
-          finished
-        </span>
-      </div>
-
-      {/* MISSION TABLE */}
-      <div className='max-w-6xl mx-auto border-4 border-black rounded-3xl overflow-hidden shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] bg-background'>
-        <div className='overflow-x-auto overflow-y-hidden'>
-          <div className='min-w-[850px] overflow-hidden'>
-            <div className='grid grid-cols-[2fr_1fr_1fr_1.2fr_0.8fr_0.8fr] text-center bg-white p-5 text-sm md:text-xl border-b-4 border-black'>
-              <div className='uppercase'>Quest</div>
-              <div className='uppercase'>Priority</div>
-              <div className='uppercase'>Duration</div>
-              <div className='uppercase'>Status</div>
-              <div className='uppercase'>Check</div>
-              <div className='uppercase'>Abort</div>
+        {/* Stats row */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+          className='relative z-10 mt-16 grid grid-cols-3 gap-4 max-w-md mx-auto'
+        >
+          {[
+            ['10K+', 'Quests Done'],
+            ['500+', 'Commanders'],
+            ['98%', 'Satisfaction'],
+          ].map(([val, label], i) => (
+            <div
+              key={i}
+              className='bg-white border-4 border-black rounded-2xl p-4 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+            >
+              <p className='text-2xl md:text-3xl'>{val}</p>
+              <p className='text-[10px] opacity-45 uppercase tracking-wide font-sans mt-0.5'>
+                {label}
+              </p>
             </div>
+          ))}
+        </motion.div>
 
-            <AnimatePresence mode='popLayout'>
-              {tasks.length === 0 && !isLoading && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className='p-10 text-center opacity-40 uppercase text-lg'
-                >
-                  No quests yet. Add one below!
-                </motion.div>
-              )}
-              {tasks.map((item, i) => (
-                <motion.div
-                  layout
-                  key={item.id || `local-${i}`}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0 }}
-                  className={`grid grid-cols-[2fr_1fr_1fr_1.2fr_0.8fr_0.8fr] border-b-2 border-black last:border-0 items-center ${getStatusColor(item.status)}`}
-                >
-                  <input
-                    className={`p-5 bg-transparent outline-none border-r-2 border-black h-full placeholder:opacity-30 ${item.completed ? 'line-through opacity-50' : ''}`}
-                    value={item.task}
-                    onChange={(e) => updateTask(i, 'task', e.target.value)}
-                    placeholder='Add a mission...'
-                  />
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{
+            delay: 1.2,
+            repeat: Infinity,
+            repeatType: 'reverse',
+            duration: 1.5,
+          }}
+          className='absolute bottom-8 left-1/2 -translate-x-1/2 text-xs uppercase opacity-25 tracking-widest'
+        >
+          Scroll to explore ↓
+        </motion.p>
+      </section>
 
-                  <div
-                    className={`relative h-full border-r-2 border-black ${getPriorityColor(item.priority)}`}
-                  >
-                    <select
-                      className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center font-luckiest'
-                      value={item.priority}
-                      onChange={(e) =>
-                        updateTask(i, 'priority', e.target.value)
-                      }
-                    >
-                      <option value='None'>None</option>
-                      <option value='Low'>Low</option>
-                      <option value='Mid'>Mid</option>
-                      <option value='High'>High</option>
-                    </select>
-                    <ChevronDownIcon
-                      size={14}
-                      className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none'
-                    />
-                  </div>
-
-                  <input
-                    className='p-5 bg-transparent outline-none border-r-2 border-black h-full text-center placeholder:opacity-30'
-                    value={item.duration}
-                    onChange={(e) => updateTask(i, 'duration', e.target.value)}
-                    placeholder='e.g. 30m'
-                  />
-
-                  <div className='relative h-full border-r-2 border-black'>
-                    <select
-                      className='w-full h-full p-5 bg-transparent outline-none cursor-pointer appearance-none text-center'
-                      value={item.status}
-                      onChange={(e) => updateTask(i, 'status', e.target.value)}
-                    >
-                      <option value='Not Started'>Not Started</option>
-                      <option value='In Progress'>In Progress</option>
-                      <option value='Done'>Done</option>
-                    </select>
-                    <ChevronDownIcon
-                      size={14}
-                      className='absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none'
-                    />
-                  </div>
-
-                  <div
-                    className='flex justify-center items-center border-r-2 border-black h-full cursor-pointer'
-                    onClick={() => updateTask(i, 'completed', !item.completed)}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-xl border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary scale-110 shadow-[2px_2px_0px_black]' : 'bg-white'}`}
-                    >
-                      {item.completed && (
-                        <CheckIcon size={20} className='text-white' />
-                      )}
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => removeTask(i)}
-                    className='flex justify-center items-center h-full hover:bg-red-400 transition-all cursor-pointer group'
-                  >
-                    <DeleteIcon
-                      size={26}
-                      className='text-red-500 group-hover:text-white transition-colors'
-                    />
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+      {/* ── FEATURES — papaya beige ── */}
+      <section
+        id='features'
+        className='py-24 px-6 bg-[#faedcd] border-y-4 border-black'
+      >
+        <div className='max-w-6xl mx-auto'>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className='text-center mb-14'
+          >
+            <Badge bg='bg-white'>
+              <TargetIcon size={10} /> Features
+            </Badge>
+            <h2 className='text-4xl md:text-6xl font-oi uppercase mt-4'>
+              Everything you need
+            </h2>
+            <p className='font-sans opacity-45 mt-3 max-w-sm mx-auto text-sm'>
+              Built for people who take their goals seriously.
+            </p>
+          </motion.div>
+          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'>
+            {[
+              {
+                icon: <TargetIcon size={22} />,
+                title: 'Daily Quests',
+                desc: 'Set and track missions with priority levels, durations and status — all in one clean table.',
+                bg: 'bg-white',
+                iconBg: 'bg-[#faedcd]',
+              },
+              {
+                icon: <FlameIcon size={22} className='text-orange-500' />,
+                title: 'Streak System',
+                desc: 'Build daily momentum. Complete quests every day to keep your fire alive.',
+                bg: 'bg-[#ffadad]/60',
+                iconBg: 'bg-white',
+              },
+              {
+                icon: <ZapIcon size={22} />,
+                title: 'XP & Levels',
+                desc: 'Earn XP per quest. Rise through 10 ranks — Rookie all the way to Commandant.',
+                bg: 'bg-white',
+                iconBg: 'bg-[#ccd5ae]',
+              },
+              {
+                icon: <BarChart3Icon size={22} />,
+                title: 'Stat Center',
+                desc: 'Weekly, monthly and yearly performance charts built from your real quest data.',
+                bg: 'bg-[#ccd5ae]/70',
+                iconBg: 'bg-white',
+              },
+              {
+                icon: <CalendarIcon size={22} />,
+                title: 'Calendar & Plans',
+                desc: 'Schedule missions, bookmark important dates, and manage multi-step plans.',
+                bg: 'bg-white',
+                iconBg: 'bg-[#faedcd]',
+              },
+              {
+                icon: <TreesIcon size={22} />,
+                title: 'Zen Garden',
+                desc: 'Your personal escape. Walk with cats, dogs and birds in a fully interactive garden.',
+                bg: 'bg-[#e9edc9]/80',
+                iconBg: 'bg-white',
+              },
+            ].map((f, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.07 }}
+              >
+                <FeatureCard {...f} />
+              </motion.div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className='text-center mt-12'>
-        <motion.button
-          whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
-          whileTap={{ scale: 0.95 }}
-          onClick={addTask}
-          className='bg-primary border-4 text-white border-black py-5 px-8 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer uppercase'
-        >
-          + ADD NEW Quest
-        </motion.button>
-      </div>
+      {/* ── HOW IT WORKS — white ── */}
+      <section className='py-24 px-6 bg-white border-b-4 border-black'>
+        <div className='max-w-4xl mx-auto'>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className='text-center mb-16'
+          >
+            <Badge bg='bg-[#e9edc9]'>
+              <ClockIcon size={10} /> How it works
+            </Badge>
+            <h2 className='text-4xl md:text-6xl font-oi uppercase mt-4'>
+              Three steps
+            </h2>
+          </motion.div>
+          <div className='grid md:grid-cols-3 gap-8'>
+            {[
+              {
+                step: '01',
+                title: 'Create Account',
+                desc: 'Sign up in seconds. Choose your codename and start your journey.',
+                bg: 'bg-[#faedcd]',
+              },
+              {
+                step: '02',
+                title: 'Add Quests',
+                desc: 'Create daily missions with priorities, durations and status tracking.',
+                bg: 'bg-[#ccd5ae]',
+              },
+              {
+                step: '03',
+                title: 'Level Up',
+                desc: 'Complete quests to earn XP, build streaks, and climb the ranks.',
+                bg: 'bg-[#d4a373]',
+              },
+            ].map((s, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.12 }}
+                className='text-center'
+              >
+                <motion.div
+                  whileHover={{ rotate: [-2, 2, -2, 0] }}
+                  transition={{ duration: 0.4 }}
+                  className={`w-24 h-24 ${s.bg} border-4 border-black rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] text-4xl font-oi`}
+                >
+                  {s.step}
+                </motion.div>
+                <h3 className='text-xl uppercase mb-2'>{s.title}</h3>
+                <p className='font-sans text-sm opacity-50 leading-relaxed max-w-[200px] mx-auto'>
+                  {s.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING — beige ── */}
+      <section
+        id='pricing'
+        className='py-24 px-6 bg-[#e9edc9] border-b-4 border-black'
+      >
+        <div className='max-w-4xl mx-auto'>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className='text-center mb-14'
+          >
+            <Badge bg='bg-[#faedcd]'>
+              <StarIcon size={10} /> Pricing
+            </Badge>
+            <h2 className='text-4xl md:text-6xl font-oi uppercase mt-4'>
+              Simple pricing
+            </h2>
+            <p className='font-sans opacity-45 mt-2 text-sm'>
+              Start free. Upgrade when you are ready.
+            </p>
+          </motion.div>
+          <div className='grid md:grid-cols-2 gap-6 max-w-3xl mx-auto'>
+            {/* Free */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              whileHover={{ y: -4 }}
+              className='bg-white border-4 border-black rounded-3xl p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]'
+            >
+              <p className='text-xs uppercase opacity-40 tracking-widest mb-2'>
+                Free Forever
+              </p>
+              <p className='text-5xl font-oi mb-6'>Free</p>
+              <ul className='space-y-2.5 mb-8'>
+                {[
+                  'Unlimited daily quests',
+                  'XP & level system',
+                  'Streak tracking',
+                  'Weekly charts',
+                  'Zen Garden',
+                  'Stat center',
+                ].map((f, i) => (
+                  <li
+                    key={i}
+                    className='flex items-center gap-2 text-sm font-sans'
+                  >
+                    <div className='w-5 h-5 rounded-full border-2 border-black bg-[#ccd5ae] flex items-center justify-center flex-shrink-0'>
+                      <CheckIcon size={11} />
+                    </div>
+                    <span className='opacity-70'>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href='/sign-in'>
+                <motion.div
+                  whileHover={{ scale: 1.02, x: 3, y: 3, boxShadow: 'none' }}
+                  whileTap={{ scale: 0.98 }}
+                  className='w-full py-4 bg-[#e9edc9] border-4 border-black rounded-2xl text-center uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer'
+                >
+                  Start Free
+                </motion.div>
+              </Link>
+            </motion.div>
+
+            {/* Premium */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              whileHover={{ y: -4 }}
+              className='bg-[#d4a373] border-4 border-black rounded-3xl overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'
+            >
+              <div className='bg-black text-[#fefae0] text-center py-2.5 text-xs uppercase tracking-widest'>
+                ⭐ Commander Tier
+              </div>
+              <div className='p-8'>
+                <p className='text-xs uppercase opacity-60 tracking-widest mb-2'>
+                  Premium
+                </p>
+                <div className='flex items-end gap-1 mb-6'>
+                  <span className='text-5xl font-oi'>$4.99</span>
+                  <span className='text-sm opacity-60 mb-1.5'>/mo</span>
+                </div>
+                <ul className='space-y-2.5 mb-8'>
+                  {[
+                    'Everything in Free',
+                    'PDF export',
+                    'Advanced analytics',
+                    'Calendar planner',
+                    'Plans board',
+                    'XP multiplier 1.5x',
+                    'Commander badge',
+                  ].map((f, i) => (
+                    <li
+                      key={i}
+                      className='flex items-center gap-2 text-sm font-sans'
+                    >
+                      <div className='w-5 h-5 rounded-full border-2 border-black bg-black/20 flex items-center justify-center flex-shrink-0'>
+                        <CheckIcon size={11} className='text-white' />
+                      </div>
+                      <span className='opacity-90'>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link href='/premium'>
+                  <motion.div
+                    whileHover={{ scale: 1.02, x: 3, y: 3, boxShadow: 'none' }}
+                    whileTap={{ scale: 0.98 }}
+                    className='w-full py-4 bg-[#fefae0] border-4 border-black rounded-2xl text-center uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer'
+                  >
+                    Go Premium
+                  </motion.div>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS — white ── */}
+      <section className='py-24 px-6 bg-white border-b-4 border-black'>
+        <div className='max-w-5xl mx-auto'>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className='text-center mb-12'
+          >
+            <Badge bg='bg-[#faedcd]'>
+              <UsersIcon size={10} /> Testimonials
+            </Badge>
+            <h2 className='text-4xl md:text-5xl font-oi uppercase mt-4'>
+              Commanders speak
+            </h2>
+          </motion.div>
+          <div className='grid md:grid-cols-3 gap-5'>
+            {[
+              {
+                name: 'GHOST_OPS',
+                rank: 'Captain',
+                text: '"QuestBoard turned my messy to-do list into a proper mission log. The streak system keeps me accountable every single day."',
+                bg: 'bg-[#faedcd]',
+              },
+              {
+                name: 'NOVA_STRIKE',
+                rank: 'Sergeant',
+                text: '"The XP system is genuinely motivating. I went from Level 1 to Level 6 in two months just by being consistent."',
+                bg: 'bg-[#ccd5ae]',
+              },
+              {
+                name: 'IRON_WOLF',
+                rank: 'Colonel',
+                text: '"Clean, fast, and fun to use. The stat center shows me exactly where I am productive and where I am slacking off."',
+                bg: 'bg-[#e9edc9]',
+              },
+            ].map((t, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -4 }}
+                className={`${t.bg} border-4 border-black rounded-2xl p-6 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]`}
+              >
+                <p className='font-sans text-sm opacity-65 leading-relaxed mb-5'>
+                  {t.text}
+                </p>
+                <div className='flex items-center gap-3'>
+                  <div className='w-9 h-9 bg-[#d4a373] border-2 border-black rounded-xl flex items-center justify-center'>
+                    <TrophyIcon size={16} />
+                  </div>
+                  <div>
+                    <p className='text-sm uppercase leading-tight'>{t.name}</p>
+                    <p className='text-[10px] opacity-40 uppercase'>{t.rank}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── FINAL CTA — light bronze warm ── */}
+      <section className='py-28 px-6 bg-[#d4a373] border-b-4 border-black'>
+        <div className='max-w-3xl mx-auto text-center'>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className='text-6xl md:text-8xl font-oi uppercase mb-5 leading-none'>
+              Ready
+              <br />
+              Commander?
+            </h2>
+            <p className='font-sans opacity-65 mb-10 text-lg'>
+              Join hundreds of commanders crushing their daily missions.
+            </p>
+            <div className='flex flex-col sm:flex-row gap-4 justify-center'>
+              <Link href='/sign-in'>
+                <motion.div
+                  whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
+                  whileTap={{ scale: 0.95 }}
+                  className='inline-flex items-center gap-3 bg-[#fefae0] border-4 border-black px-10 py-5 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-2xl uppercase cursor-pointer'
+                >
+                  Start Free <ArrowRightIcon size={24} />
+                </motion.div>
+              </Link>
+              <Link href='/premium'>
+                <motion.div
+                  whileHover={{ scale: 1.05, x: 4, y: 4, boxShadow: 'none' }}
+                  whileTap={{ scale: 0.95 }}
+                  className='inline-flex items-center gap-3 bg-black text-[#fefae0] border-4 border-black px-10 py-5 rounded-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] text-2xl uppercase cursor-pointer'
+                >
+                  <StarIcon size={22} /> Go Premium
+                </motion.div>
+              </Link>
+            </div>
+            <p className='font-sans text-xs opacity-40 mt-5 uppercase tracking-widest'>
+              Free forever · No credit card needed
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FOOTER — cornsilk */}
+      <footer className='border-t-4 border-black bg-[#fefae0] px-6 py-8'>
+        <div className='max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4'>
+          <span className='text-2xl font-oi uppercase'>QuestBoard</span>
+          <div className='flex flex-wrap items-center gap-5 text-xs uppercase opacity-40 font-luckiest'>
+            {[
+              ['App', '/board'],
+              ['Calendar', '/calendar'],
+              ['Plans', '/plans'],
+              ['Garden', '/garden'],
+              ['Premium', '/premium'],
+              ['Login', '/login'],
+            ].map(([label, href]) => (
+              <Link
+                key={label}
+                href={href}
+                className='hover:opacity-100 transition-opacity'
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+          <p className='font-sans text-xs opacity-25'>
+            © 2026 QuestBoard. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
-};
-
-export default Page;
+}
