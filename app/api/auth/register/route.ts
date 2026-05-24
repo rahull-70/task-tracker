@@ -9,11 +9,17 @@ export async function POST(req: NextRequest) {
     const { codename, email, password } = await req.json();
 
     if (!codename || !email || !password) {
-      return NextResponse.json({ error: 'All fields required.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'All fields required.' },
+        { status: 400 },
+      );
     }
 
     if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters.' },
+        { status: 400 },
+      );
     }
 
     const existing = await prisma.user.findFirst({
@@ -21,7 +27,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (existing) {
-      return NextResponse.json({ error: 'Email or codename already taken.' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'Email or codename already taken.' },
+        { status: 409 },
+      );
     }
 
     const hashed = await bcrypt.hash(password, 12);
@@ -34,7 +43,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const token = signToken({ id: user.id, codename: user.codename, email: user.email });
+    if (!user.codename || !user.email) {
+      return NextResponse.json(
+        { error: 'Invalid user data.' },
+        { status: 500 },
+      );
+    }
+
+    const token = signToken({
+      id: user.id,
+      codename: user.codename,
+      email: user.email,
+    });
 
     const cookie = serialize('auth_token', token, {
       httpOnly: true,
@@ -46,10 +66,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { id: user.id, codename: user.codename, email: user.email },
-      { status: 201, headers: { 'Set-Cookie': cookie } }
+      { status: 201, headers: { 'Set-Cookie': cookie } },
     );
   } catch (err) {
     console.error('Register error:', err);
-    return NextResponse.json({ error: 'Something went wrong.' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Something went wrong.' },
+      { status: 500 },
+    );
   }
 }
