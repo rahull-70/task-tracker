@@ -7,7 +7,6 @@ import {
   FlameIcon,
   BarChart3Icon,
   CalendarIcon,
-  ShieldCheckIcon,
   StarIcon,
   ArrowRightIcon,
   CheckIcon,
@@ -15,7 +14,7 @@ import {
   TargetIcon,
   UsersIcon,
   ClockIcon,
-  TreesIcon,
+  LayoutDashboardIcon,
 } from 'lucide-react';
 
 const Badge = ({
@@ -81,16 +80,28 @@ export default function LandingPage() {
               Features
             </Link>
             <Link
+              href='/board'
+              className='hover:opacity-100 transition-opacity cursor-pointer'
+            >
+              Dashboard
+            </Link>
+            <Link
+              href='/calendar'
+              className='hover:opacity-100 transition-opacity cursor-pointer'
+            >
+              Calendar
+            </Link>
+            <Link
+              href='/plans'
+              className='hover:opacity-100 transition-opacity cursor-pointer'
+            >
+              Plans
+            </Link>
+            <Link
               href='#pricing'
               className='hover:opacity-100 transition-opacity cursor-pointer'
             >
               Pricing
-            </Link>
-            <Link
-              href='/garden'
-              className='hover:opacity-100 transition-opacity cursor-pointer'
-            >
-              Garden
             </Link>
           </div>
           <div className='flex items-center gap-3'>
@@ -249,8 +260,8 @@ export default function LandingPage() {
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5'>
             {[
               {
-                icon: <TargetIcon size={22} />,
-                title: 'Daily Quests',
+                icon: <LayoutDashboardIcon size={22} />,
+                title: 'Main Dashboard',
                 desc: 'Set and track missions with priority levels, durations and status — all in one clean table.',
                 bg: 'bg-white',
                 iconBg: 'bg-[#faedcd]',
@@ -278,15 +289,15 @@ export default function LandingPage() {
               },
               {
                 icon: <CalendarIcon size={22} />,
-                title: 'Calendar & Plans',
-                desc: 'Schedule missions, bookmark important dates, and manage multi-step plans.',
+                title: 'Calendar Control',
+                desc: 'Schedule missions precisely, block important release dates, and track timelines.',
                 bg: 'bg-white',
                 iconBg: 'bg-[#faedcd]',
               },
               {
-                icon: <TreesIcon size={22} />,
-                title: 'Zen Garden',
-                desc: 'Your personal escape. Walk with cats, dogs and birds in a fully interactive garden.',
+                icon: <TargetIcon size={22} />,
+                title: 'Multi-Step Plans',
+                desc: 'Group large milestones into single core objectives to break down long journeys.',
                 bg: 'bg-[#e9edc9]/80',
                 iconBg: 'bg-white',
               },
@@ -408,7 +419,7 @@ export default function LandingPage() {
                   'XP & level system',
                   'Streak tracking',
                   'Weekly charts',
-                  'Zen Garden',
+                  'Main dashboard access',
                   'Stat center',
                 ].map((f, i) => (
                   <li
@@ -455,10 +466,10 @@ export default function LandingPage() {
                 <ul className='space-y-2.5 mb-8'>
                   {[
                     'Everything in Free',
-                    'PDF export',
+                    'PDF export options',
                     'Advanced analytics',
-                    'Calendar planner',
-                    'Plans board',
+                    'Calendar planner layout',
+                    'Strategic plans board',
                     'XP multiplier 1.5x',
                     'Commander badge',
                   ].map((f, i) => (
@@ -604,7 +615,6 @@ export default function LandingPage() {
               ['App', '/board'],
               ['Calendar', '/calendar'],
               ['Plans', '/plans'],
-              ['Garden', '/garden'],
               ['Premium', '/premium'],
               ['Login', '/login'],
             ].map(([label, href]) => (
