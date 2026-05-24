@@ -27,7 +27,12 @@ export async function POST(req: NextRequest) {
       data: { resetToken: token, resetTokenExpiry: expiry },
     });
 
-    const resetUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+    // Dynamically detect the environment base URL via headers
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const protocol = host?.includes('localhost') ? 'http' : 'https';
+    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXTAUTH_URL || 'http://localhost:3000');
+
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
     // Send email
     const transporter = nodemailer.createTransport({
