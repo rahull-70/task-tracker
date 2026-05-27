@@ -15,4 +15,6 @@ model User {
   createdAt         DateTime  @default(now())
   resetToken        String?
   resetTokenExpiry  DateTime?
+  isPremium     Boolean   @default(false)
+  premiumSince  DateTime?
 }

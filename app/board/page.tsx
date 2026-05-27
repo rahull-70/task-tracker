@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
+import CommandMenu from '@/components/CommandMenu';
 
 interface Task {
   id?: string;
@@ -221,6 +222,7 @@ const Page = () => {
   return (
     <div className='min-h-screen bg-soft text-foreground font-luckiest overflow-x-hidden'>
       {/* TOP NAV */}
+      <CommandMenu />
       <div className='flex items-center justify-between px-6 md:px-10 pt-6 md:pt-8'>
         {/* AUTH BUTTON */}
         <AnimatePresence mode='wait'>
@@ -306,6 +308,11 @@ const Page = () => {
             {yesterdayCount === 1 ? 'task' : 'tasks'} finished
           </span>
         </motion.div>
+
+         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+          className='text-[12px] uppercase tracking-widest opacity-20 mt-3 font-luckiest'>
+          Press ⌘K to navigate
+        </motion.p>
       </div>
 
       {/* PROGRESS BAR — only show when logged in and has tasks */}
