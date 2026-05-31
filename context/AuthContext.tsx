@@ -5,6 +5,9 @@ interface AuthUser {
   id: string;
   codename: string;
   email: string;
+  isPremium: boolean;
+  premiumSince?: string | null;
+  createdAt?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +18,7 @@ interface AuthContextType {
   register: (codename: string, email: string, password: string) => Promise<{ error?: string }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -24,23 +28,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
-        if (data.user) {
-          setUser(data.user);
-          setIsLoggedIn(true);
-        }
-      } catch (err) {
-        console.error('Session check failed:', err);
-      } finally {
-        setIsLoading(false);
+  const checkSession = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.user) {
+        setUser(data.user);
+        setIsLoggedIn(true);
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
       }
-    };
-    checkSession();
-  }, []);
+    } catch (err) {
+      console.error('Session check failed:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { checkSession(); }, []);
 
   const login = async (email: string, password: string): Promise<{ error?: string }> => {
     try {
@@ -51,8 +57,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       const data = await res.json();
       if (!res.ok) return { error: data.error || 'Login failed.' };
-      setUser(data);
-      setIsLoggedIn(true);
+      // Re-fetch full user with isPremium from /me
+      await checkSession();
       return {};
     } catch {
       return { error: 'Network error. Try again.' };
@@ -68,8 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       const data = await res.json();
       if (!res.ok) return { error: data.error || 'Registration failed.' };
-      setUser(data);
-      setIsLoggedIn(true);
+      await checkSession();
       return {};
     } catch {
       return { error: 'Network error. Try again.' };
@@ -97,8 +102,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoggedIn(false);
   };
 
+  const refreshUser = async () => { await checkSession(); };
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, register, resetPassword, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, register, resetPassword, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
