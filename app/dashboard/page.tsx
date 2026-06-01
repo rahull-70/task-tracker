@@ -567,7 +567,7 @@ const Dashboard = () => {
       initial='initial'
       animate='animate'
       variants={containerVars}
-      className='p-6 md:p-10 min-h-screen bg-[#e9edc9] text-black font-luckiest'
+      className='p-6 md:p-10 min-h-screen bg-[#edede9] text-black font-luckiest'
     >
       {showPremium && <PremiumModal onClose={() => setShowPremium(false)} />}
       <AnimatePresence>
