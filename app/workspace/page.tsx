@@ -1,50 +1,27 @@
 'use client';
-
-import { useState, useRef, ChangeEvent, useEffect } from 'react';
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { 
-  ArrowLeftIcon, 
-  PlusIcon, 
-  Trash2Icon, 
-  CopyIcon, 
-  CheckIcon, 
-  LinkIcon, 
-  CodeIcon, 
-  FileTextIcon, 
-  ArchiveIcon,
-  XIcon,
-  Image as ImageIcon, 
-  Mic, 
-  Square, 
-  Upload, 
-  Calendar,
-  Heading1,
-  Sparkles,
-  Search,
-  Sliders,
-  Bold, 
-  Paintbrush, 
-  Maximize2,
-  Italic, 
-  Underline, 
-  Strikethrough,
-  LayoutGrid
+import {
+  ArrowLeftIcon, PlusIcon, Trash2Icon, CopyIcon, CheckIcon,
+  LinkIcon, CodeIcon, FileTextIcon, ArchiveIcon, XIcon,
+  ImageIcon, MicIcon, SquareIcon, UploadIcon, SearchIcon,
+  BoldIcon, ItalicIcon, UnderlineIcon, LayoutGridIcon,
+  ChevronDownIcon, SlidersIcon, Maximize2Icon, StrikethroughIcon,
 } from 'lucide-react';
 
-// Core Type Structures
-interface IntelAsset {
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface Asset {
   id: string;
   title: string;
-  type: 'Link' | 'Snippet' | 'Quick Note';
+  type: 'Link' | 'Snippet' | 'Note';
   content: string;
   color: string;
 }
 
-interface WorkspaceNote {
+interface Note {
   id: string;
   title: string;
-  subtitle: string;
   content: string;
   imageUrls: string[];
   audioUrl?: string;
@@ -53,593 +30,576 @@ interface WorkspaceNote {
   textDecoration: string;
   textColor: string;
   fontSize: 'text-xs' | 'text-sm' | 'text-base' | 'text-lg';
-  lineHeight: 'leading-relaxed' | 'leading-loose' | 'leading-normal';
-  pagePadding: 'p-4' | 'p-8' | 'p-12';
+  lineHeight: 'leading-normal' | 'leading-relaxed' | 'leading-loose';
   createdAt: string;
 }
 
-const INTEL_TYPES = ['Quick Note', 'Link', 'Snippet'] as const;
-const VAULT_COLORS = ['bg-[#ccd5ae]', 'bg-[#e9edc9]', 'bg-[#faedcd]', 'bg-[#ffadad]', 'bg-[#ffd6a5]'];
+const ASSET_TYPES = ['Link', 'Snippet', 'Note'] as const;
+const COLORS = ['bg-[#fefae0]', 'bg-[#faedcd]', 'bg-[#e9edc9]', 'bg-[#ccd5ae]', 'bg-[#ffadad]', 'bg-[#ffd6a5]'];
+
+// ── Empty state ────────────────────────────────────────────────────────────────
+const Empty = ({ label, onAdd }: { label: string; onAdd: () => void }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+    className='flex flex-col items-center justify-center h-full gap-4 text-center'>
+    <div className='bg-[#faedcd] border-4 border-black p-5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+      <ArchiveIcon size={32} />
+    </div>
+    <p className='font-luckiest text-xl uppercase'>Nothing here yet</p>
+    <p className='text-xs font-sans opacity-40 uppercase max-w-xs'>{label}</p>
+    <motion.button whileHover={{ scale: 1.04, x: 2, y: 2, boxShadow: 'none' }} whileTap={{ scale: 0.96 }}
+      onClick={onAdd}
+      className='bg-[#d4a373] border-4 border-black px-5 py-2.5 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-luckiest text-sm uppercase cursor-pointer'>
+      + Add First
+    </motion.button>
+  </motion.div>
+);
 
 export default function IntelDeckPage() {
-  // --- STATE SYSTEM: INTEGRATED DATA LOGIC ---
-  const [assets, setAssets] = useState<IntelAsset[]>([]);
-  const [notes, setNotes] = useState<WorkspaceNote[]>([
-    {
-      id: 'sample-1',
-      title: 'DESIGN SYSTEM SPEC',
-      subtitle: 'RENOH CORE INTERFACE',
-      content: 'Building out the minimalist design system matrix. Focus areas include hard borders, modern neubrutalist layouts, high contrast interaction mechanics, and adaptive inline content streams.',
-      imageUrls: ['https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop'],
-      color: '#ffffff',
-      fontStyle: 'font-sans',
-      textDecoration: '',
-      textColor: '#1c1917',
-      fontSize: 'text-sm',
-      lineHeight: 'leading-relaxed',
-      pagePadding: 'p-8',
-      createdAt: 'May 26, 2026'
-    }
-  ]);
-
-  // View Controllers
-  const [activeNoteId, setActiveNoteId] = useState<string>('sample-1');
-  const [activeViewMode, setActiveViewMode] = useState<'Canvas' | 'Matrix'>('Canvas'); // Switch Workspace Canvas vs Bento Asset Grid
-  const [searchQuery, setSearchQuery] = useState('');
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [view, setView] = useState<'canvas' | 'vault'>('canvas');
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [assetFilter, setAssetFilter] = useState('All');
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [showFormat, setShowFormat] = useState(false);
+  const [showNewAsset, setShowNewAsset] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [imageInput, setImageInput] = useState('');
-  const [showThemePanel, setShowThemePanel] = useState(false);
-  const [showNotesPanel, setShowNotesPanel] = useState(true);
-  const [showNewAssetForm, setShowNewAssetForm] = useState(false);
-  const [copiedAssetId, setCopiedAssetId] = useState<string | null>(null);
-  const [filterAssetType, setFilterAssetType] = useState<string>('All');
-
-  // Form State Template for Asset Deck Drop
-  const [newAsset, setNewAsset] = useState({ 
-    title: '', 
-    type: 'Quick Note' as IntelAsset['type'], 
-    content: '', 
-    color: VAULT_COLORS[0] 
-  });
-
-  // Floating Context Menu References
-  const [bubbleMenu, setBubbleMenu] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: false });
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Audio Processing Recording Pipes
+  const [showImageInput, setShowImageInput] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [bubbleMenu, setBubbleMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+
+  const [newAsset, setNewAsset] = useState({ title: '', type: 'Note' as Asset['type'], content: '', color: COLORS[0] });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const activeNote = notes.find(n => n.id === activeNoteId) || notes[0];
-
-  // --- ACTIONS & HANDLERS ---
-  const handleTextSelection = () => {
-    if (!textareaRef.current) return;
-    const selection = window.getSelection();
-    const text = selection?.toString().trim();
-
-    if (text && text.length > 0) {
-      const rect = textareaRef.current.getBoundingClientRect();
-      setBubbleMenu({
-        x: rect.left + (rect.width / 2) - 140,
-        y: rect.top - 55 + window.scrollY,
-        visible: true
-      });
-    } else {
-      setBubbleMenu(prev => ({ ...prev, visible: false }));
-    }
-  };
+  const activeNote = notes.find(n => n.id === activeId);
 
   useEffect(() => {
-    const dismissSelection = () => setBubbleMenu(prev => ({ ...prev, visible: false }));
-    window.addEventListener('mousedown', dismissSelection);
-    return () => window.removeEventListener('mousedown', dismissSelection);
+    const hide = () => setBubbleMenu(p => ({ ...p, show: false }));
+    window.addEventListener('mousedown', hide);
+    return () => window.removeEventListener('mousedown', hide);
   }, []);
 
-  const createAssetNode = () => {
-    if (!newAsset.title.trim() || !newAsset.content.trim()) return;
-    const constructedAsset: IntelAsset = { id: Math.random().toString(36).slice(2), ...newAsset };
-    setAssets(prev => [constructedAsset, ...prev]);
-    setNewAsset({ title: '', type: 'Quick Note', content: '', color: VAULT_COLORS[0] });
-    setShowNewAssetForm(false);
-  };
-
-  const createNewWorkspacePage = () => {
-    const newNote: WorkspaceNote = {
-      id: crypto.randomUUID(),
-      title: 'UNTITLED WORKSPACE PAGE',
-      subtitle: 'QUICK RECORD',
-      content: '',
-      imageUrls: [],
-      color: '#ffffff',
-      fontStyle: 'font-sans',
-      textDecoration: '',
-      textColor: '#1c1917',
-      fontSize: 'text-sm',
+  // ── Note actions ───────────────────────────────────────────────────────────
+  const newNote = () => {
+    const n: Note = {
+      id: crypto.randomUUID(), title: 'UNTITLED', content: '',
+      imageUrls: [], color: '#fefae0', fontStyle: 'font-sans',
+      textDecoration: '', textColor: '#1c1917', fontSize: 'text-sm',
       lineHeight: 'leading-relaxed',
-      pagePadding: 'p-8',
-      createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     };
-    setNotes([newNote, ...notes]);
-    setActiveNoteId(newNote.id);
-    setActiveViewMode('Canvas');
+    setNotes(prev => [n, ...prev]);
+    setActiveId(n.id);
+    setView('canvas');
   };
 
-  const updateActiveNoteField = (fields: Partial<WorkspaceNote>) => {
-    if (!activeNote) return;
-    setNotes(notes.map(n => n.id === activeNote.id ? { ...n, ...fields } : n));
+  const updateNote = (fields: Partial<Note>) => {
+    if (!activeId) return;
+    setNotes(prev => prev.map(n => n.id === activeId ? { ...n, ...fields } : n));
   };
 
-  const injectImageToActiveNote = (val: string) => {
-    if (!val.trim() || !activeNote) return;
-    updateActiveNoteField({ imageUrls: [...(activeNote.imageUrls || []), val.trim()] });
+  const deleteNote = (id: string) => {
+    setNotes(prev => prev.filter(n => n.id !== id));
+    if (activeId === id) setActiveId(notes.find(n => n.id !== id)?.id ?? null);
+  };
+
+  // ── Image handling ─────────────────────────────────────────────────────────
+  const addImageFromUrl = () => {
+    if (!imageInput.trim()) return;
+    updateNote({ imageUrls: [...(activeNote?.imageUrls || []), imageInput.trim()] });
     setImageInput('');
+    setShowImageInput(false);
   };
 
-  const handleLocalImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const addImageFromFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (activeNote) {
-        updateActiveNoteField({ imageUrls: [...(activeNote.imageUrls || []), reader.result as string] });
-      }
+      updateNote({ imageUrls: [...(activeNote?.imageUrls || []), reader.result as string] });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const toggleTextDecoration = (styleClass: string) => {
-    const activeStyles = activeNote.textDecoration.includes(styleClass)
-      ? activeNote.textDecoration.replace(styleClass, '').trim()
-      : `${activeNote.textDecoration} ${styleClass}`.trim();
-    updateActiveNoteField({ textDecoration: activeStyles });
+  const removeImage = (index: number) => {
+    updateNote({ imageUrls: activeNote?.imageUrls.filter((_, i) => i !== index) ?? [] });
   };
 
+  // ── Audio recording ────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const audioUrl = URL.createObjectURL(new Blob(audioChunksRef.current, { type: 'audio/wav' }));
-        updateActiveNoteField({ audioUrl });
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const url = URL.createObjectURL(new Blob(audioChunksRef.current, { type: 'audio/wav' }));
+        updateNote({ audioUrl: url });
+        stream.getTracks().forEach(t => t.stop());
       };
-      mediaRecorder.start();
+      recorder.start();
       setIsRecording(true);
-    } catch (err) { console.error(err); }
+    } catch (e) { console.error(e); }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    }
+    mediaRecorderRef.current?.stop();
+    setIsRecording(false);
   };
 
-  // Filters & Content Search Drivers
-  const filteredNotes = notes.filter(n => 
-    n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    n.content.toLowerCase().includes(searchQuery.toLowerCase())
+  // ── Text formatting ────────────────────────────────────────────────────────
+  const handleSelect = () => {
+    const sel = window.getSelection()?.toString().trim();
+    if (!sel || !textareaRef.current) return;
+    const rect = textareaRef.current.getBoundingClientRect();
+    setBubbleMenu({ x: rect.left + rect.width / 2 - 120, y: rect.top - 52, show: true });
+  };
+
+  const toggleFormat = (cls: string) => {
+    if (!activeNote) return;
+    const cur = activeNote.textDecoration;
+    updateNote({ textDecoration: cur.includes(cls) ? cur.replace(cls, '').trim() : `${cur} ${cls}`.trim() });
+  };
+
+  // ── Asset actions ──────────────────────────────────────────────────────────
+  const addAsset = () => {
+    if (!newAsset.title.trim() || !newAsset.content.trim()) return;
+    setAssets(prev => [{ id: crypto.randomUUID(), ...newAsset }, ...prev]);
+    setNewAsset({ title: '', type: 'Note', content: '', color: COLORS[0] });
+    setShowNewAsset(false);
+  };
+
+  const copyAsset = (content: string, id: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
+
+  const filteredNotes = notes.filter(n =>
+    n.title.toLowerCase().includes(search.toLowerCase()) ||
+    n.content.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredAssets = filterAssetType === 'All' 
-    ? assets 
-    : assets.filter(item => item.type === filterAssetType);
+  const filteredAssets = assetFilter === 'All' ? assets : assets.filter(a => a.type === assetFilter);
 
   return (
-    <div className='w-full h-screen bg-[#FFFEEA] text-black flex flex-col overflow-hidden font-sans antialiased select-none p-4'>
-      
-      {/* ── HEADER MARQUEE STRIP ── */}
-      <div className='w-full bg-white border-4 border-black rounded-2xl px-6 py-4 flex items-center justify-between mb-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] z-30 shrink-0'>
-        <div className='flex items-center gap-4'>
+    <div className='w-full h-screen bg-[#fefae0] flex flex-col overflow-hidden font-luckiest select-none'>
+
+      {/* ── HEADER ── */}
+      <div className='flex items-center justify-between px-5 py-3 border-b-4 border-black bg-white shrink-0'>
+        <div className='flex items-center gap-3'>
           <Link href='/board'>
-            <motion.div whileHover={{ scale: 1.04, x: 1, y: 1 }} whileTap={{ scale: 0.96 }}
-              className='flex items-center gap-2 bg-[#e9edc9] border-2 border-black px-3 py-1.5 rounded-xl shadow-[2px_2px_0px_rgba(0,0,0,1)] cursor-pointer text-xs uppercase font-bold'>
+            <motion.div whileHover={{ scale: 1.04, x: 2, y: 2, boxShadow: 'none' }} whileTap={{ scale: 0.96 }}
+              className='flex items-center gap-1.5 bg-[#e9edc9] border-4 border-black px-3 py-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer text-xs uppercase'>
               <ArrowLeftIcon size={14} /> Back
             </motion.div>
           </Link>
-          <div>
-            <h1 className='text-lg md:text-2xl font-oi uppercase tracking-tight leading-none'>Intel Deck</h1>
-            <p className='text-[9px] opacity-40 uppercase tracking-wider font-bold mt-1 hidden sm:block'>Central Secure Storage & Canvas Matrix</p>
-          </div>
+          <h1 className='text-xl md:text-2xl font-oi uppercase tracking-tight'>Intel Deck</h1>
         </div>
 
-        {/* Dynamic Context Button Layer */}
+        {/* View toggle */}
         <div className='flex items-center gap-2'>
-          <div className='bg-neutral-100 border-2 border-black p-0.5 rounded-xl flex gap-0.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]'>
-            <button 
-              onClick={() => setActiveViewMode('Canvas')}
-              className={`px-3 py-1 text-[10px] uppercase font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${activeViewMode === 'Canvas' ? 'bg-black text-white' : 'hover:bg-neutral-200 text-black'}`}
-            >
-              <FileTextIcon size={12} /> Canvas
+          <div className='flex bg-[#fefae0] border-4 border-black rounded-xl overflow-hidden shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'>
+            <button onClick={() => setView('canvas')}
+              className={`px-3 py-2 text-xs uppercase flex items-center gap-1.5 transition-all cursor-pointer ${view === 'canvas' ? 'bg-[#ccd5ae]' : 'hover:bg-[#e9edc9]'}`}>
+              <FileTextIcon size={13} /> Canvas
             </button>
-            <button 
-              onClick={() => setActiveViewMode('Matrix')}
-              className={`px-3 py-1 text-[10px] uppercase font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${activeViewMode === 'Matrix' ? 'bg-black text-white' : 'hover:bg-neutral-200 text-black'}`}
-            >
-              <LayoutGrid size={12} /> Asset Grid ({assets.length})
+            <button onClick={() => setView('vault')}
+              className={`px-3 py-2 text-xs uppercase flex items-center gap-1.5 transition-all cursor-pointer border-l-4 border-black ${view === 'vault' ? 'bg-[#faedcd]' : 'hover:bg-[#e9edc9]'}`}>
+              <LayoutGridIcon size={13} /> Vault {assets.length > 0 && `(${assets.length})`}
             </button>
           </div>
 
-          <motion.button 
-            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            onClick={() => {
-              if (activeViewMode === 'Matrix') setShowNewAssetForm(true);
-              else createNewWorkspacePage();
-            }}
-            className='flex items-center gap-1.5 bg-[#d4a373] border-2 border-black px-3 py-1.5 rounded-xl shadow-[2px_2px_0px_rgba(0,0,0,1)] cursor-pointer text-xs uppercase font-bold'
-          >
-            <PlusIcon size={14} /> {activeViewMode === 'Matrix' ? 'Drop Asset' : 'New Canvas'}
+          <motion.button whileHover={{ scale: 1.04, x: 2, y: 2, boxShadow: 'none' }} whileTap={{ scale: 0.96 }}
+            onClick={() => view === 'canvas' ? newNote() : setShowNewAsset(true)}
+            className='flex items-center gap-1.5 bg-[#d4a373] border-4 border-black px-4 py-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] cursor-pointer text-xs uppercase'>
+            <PlusIcon size={14} /> {view === 'canvas' ? 'New Note' : 'Drop Asset'}
           </motion.button>
         </div>
       </div>
 
-      {/* ── CORE COMPONENT INTERACTION FIELD ── */}
-      <div className='flex-1 flex w-full overflow-hidden relative'>
+      {/* ── BODY ── */}
+      <div className='flex flex-1 overflow-hidden'>
 
-        {/* INLINE TEXT FORMATTING SELECTION BUBBLE */}
+        {/* SIDEBAR — only in canvas view */}
         <AnimatePresence>
-          {bubbleMenu.visible && activeViewMode === 'Canvas' && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 5 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 5 }}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{ left: bubbleMenu.x, top: bubbleMenu.y }}
-              className='absolute fixed z-50 bg-white border-2 border-black rounded-xl shadow-[4px_4px_0px_rgba(0,0,0,1)] p-1.5 flex items-center gap-1'
-            >
-              <button onClick={() => toggleTextDecoration('font-bold')} className='p-1.5 hover:bg-neutral-100 rounded-lg'><Bold className='w-3.5 h-3.5' /></button>
-              <button onClick={() => toggleTextDecoration('italic')} className='p-1.5 hover:bg-neutral-100 rounded-lg'><Italic className='w-3.5 h-3.5' /></button>
-              <button onClick={() => toggleTextDecoration('underline')} className='p-1.5 hover:bg-neutral-100 rounded-lg'><Underline className='w-3.5 h-3.5' /></button>
-              <button onClick={() => toggleTextDecoration('line-through')} className='p-1.5 hover:bg-neutral-100 rounded-lg'><Strikethrough className='w-3.5 h-3.5' /></button>
-              <div className='w-[1px] h-4 bg-black/20 mx-1' />
-              <button onClick={() => updateActiveNoteField({ fontStyle: 'font-mono' })} className='p-1 hover:bg-neutral-100 rounded text-[10px] font-mono font-bold'>Mono</button>
-              <button onClick={() => updateActiveNoteField({ fontStyle: 'font-serif' })} className='p-1 hover:bg-neutral-100 rounded text-[10px] font-serif font-bold'>Serif</button>
+          {view === 'canvas' && showSidebar && (
+            <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: 256, opacity: 1 }} exit={{ width: 0, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28 }}
+              className='h-full border-r-4 border-black bg-white flex flex-col overflow-hidden shrink-0'>
+
+              {/* Search */}
+              <div className='p-3 border-b-2 border-black/10'>
+                <div className='flex items-center gap-2 bg-[#fefae0] border-2 border-black rounded-xl px-3 py-2'>
+                  <SearchIcon size={13} className='opacity-40' />
+                  <input value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder='Search notes...'
+                    className='bg-transparent outline-none text-xs w-full placeholder:opacity-30 font-luckiest uppercase' />
+                </div>
+              </div>
+
+              {/* Notes list */}
+              <div className='flex-1 overflow-y-auto p-3 space-y-1.5'>
+                {filteredNotes.length === 0 && (
+                  <p className='text-[10px] uppercase opacity-30 text-center py-8'>No notes yet</p>
+                )}
+                {filteredNotes.map(n => (
+                  <motion.div key={n.id} layout
+                    onClick={() => setActiveId(n.id)}
+                    className={`group flex items-center justify-between p-2.5 rounded-xl border-2 cursor-pointer transition-all ${activeId === n.id ? 'bg-[#faedcd] border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'border-transparent hover:bg-[#fefae0]'}`}>
+                    <div className='flex items-center gap-2 min-w-0'>
+                      <FileTextIcon size={13} className='opacity-40 shrink-0' />
+                      <span className='text-xs uppercase truncate'>{n.title || 'Untitled'}</span>
+                    </div>
+                    <button onClick={e => { e.stopPropagation(); deleteNote(n.id); }}
+                      className='opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 cursor-pointer transition-opacity'>
+                      <Trash2Icon size={12} />
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* New note button bottom */}
+              <div className='p-3 border-t-2 border-black/10'>
+                <motion.button whileTap={{ scale: 0.96 }} onClick={newNote}
+                  className='w-full flex items-center justify-center gap-2 bg-[#e9edc9] border-2 border-black rounded-xl py-2.5 text-xs uppercase cursor-pointer hover:bg-[#ccd5ae] transition-colors'>
+                  <PlusIcon size={13} /> New Note
+                </motion.button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── PERSISTENT LEFT BAR: MASTER INDEX NAVIGATION ── */}
-        {showNotesPanel && (
-          <div className='w-72 border-4 border-black bg-white h-full flex flex-col justify-between shrink-0 rounded-2xl shadow-[4px_4px_0px_rgba(0,0,0,1)] mr-4 overflow-hidden z-20'>
-            <div className='flex-1 flex flex-col min-h-0'>
-              <div className='p-4 border-b-4 border-black flex items-center justify-between bg-neutral-50'>
-                <div className='flex items-center gap-2'>
-                  <div className='w-5 h-5 bg-black rounded text-white flex items-center justify-center font-black text-[10px]'>ID</div>
-                  <span className='font-black tracking-tight text-[11px] uppercase opacity-80'>WORKSPACE NOTE INDEX</span>
-                </div>
-                <button onClick={createNewWorkspacePage} className='p-1 border-2 border-black rounded-lg bg-[#ccd5ae] shadow-[1px_1px_0px_rgba(0,0,0,1)] cursor-pointer'><PlusIcon className='w-3 h-3 stroke-[3]' /></button>
-              </div>
-
-              <div className='p-3 border-b-2 border-black/10 bg-neutral-50/50'>
-                <div className='flex items-center gap-2 border-2 border-black bg-white rounded-xl px-2.5 py-1.5 shadow-[2px_2px_0px_rgba(0,0,0,1)]'>
-                  <Search className='w-3.5 h-3.5 text-neutral-400' />
-                  <input type='text' placeholder='Filter canvas pages...' value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className='bg-transparent text-xs outline-none w-full font-bold uppercase tracking-wide placeholder:text-black/20' />
-                </div>
-              </div>
-
-              {/* SHEET ITERATOR LIST */}
-              <div className='flex-1 overflow-y-auto p-3 space-y-1.5 [&::-webkit-scrollbar]:hidden'>
-                {filteredNotes.map(noteItem => (
-                  <div 
-                    key={noteItem.id} 
-                    onClick={() => { setActiveNoteId(noteItem.id); setActiveViewMode('Canvas'); }} 
-                    className={`w-full group flex items-center justify-between p-2.5 rounded-xl border-2 cursor-pointer transition-all ${activeNote?.id === noteItem.id && activeViewMode === 'Canvas' ? 'bg-[#faedcd] border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] -translate-y-0.5' : 'border-transparent hover:bg-neutral-100'}`}
-                  >
-                    <div className='flex items-center gap-2 min-w-0 flex-1'>
-                      <FileTextIcon className={`w-3.5 h-3.5 shrink-0 ${activeNote?.id === noteItem.id ? 'text-black' : 'text-neutral-400'}`} />
-                      <span className='text-[11px] uppercase font-black truncate tracking-wide'>{noteItem.title || 'Untitled Document'}</span>
-                    </div>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); const rem = notes.filter(n => n.id !== noteItem.id); setNotes(rem); if(activeNoteId === noteItem.id && rem.length > 0) setActiveNoteId(rem[0].id); }} 
-                      className='opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 transition-opacity'
-                    >
-                      <Trash2Icon className='w-3.5 h-3.5' />
-                    </button>
-                  </div>
-                ))}
-                {filteredNotes.length === 0 && (
-                  <p className='text-center text-[10px] uppercase font-bold opacity-30 pt-4'>No pages match filter</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── RIGHT MATRIX VIEWPORT: CANVAS CORE VS ASSET DECK GRID ── */}
-        <div className='flex-1 h-full relative overflow-hidden'>
-          
+        {/* MAIN AREA */}
+        <div className='flex-1 overflow-hidden flex flex-col'>
           <AnimatePresence mode='wait'>
-            {activeViewMode === 'Canvas' ? (
-              
-              /* ========================================================
-                 VIEW MODE A: NOTION DESK CANVAS WORKING SYSTEM 
-                 ======================================================== */
-              <motion.div 
-                key="canvas-view" initial={{ opacity: 0, scale: 0.99 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.99 }}
-                className='w-full h-full flex flex-col border-4 border-black rounded-2xl bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] overflow-hidden'
-                style={{ backgroundColor: activeNote?.color }}
-              >
-                {/* Internal Actions Toolbelt */}
-                <div className='w-full px-5 py-3 border-b-4 border-black flex items-center justify-between bg-white shrink-0 z-10 shadow-[0_2px_0_0_rgba(0,0,0,0.05)]'>
-                  <div className='flex items-center gap-2'>
-                    <button onClick={() => setShowThemePanel(!showThemePanel)} className='flex items-center gap-1 px-2.5 py-1.5 border-2 border-black rounded-lg bg-neutral-50 text-[10px] font-black uppercase shadow-[2px_2px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-neutral-100'><Paintbrush className='w-3.5 h-3.5' /> Format Properties</button>
-                    <div className='h-5 w-[2px] bg-black/10 mx-1' />
-                    <button onClick={() => setShowNotesPanel(!showNotesPanel)} className={`p-1.5 border-2 border-black rounded-xl shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all cursor-pointer ${showNotesPanel ? 'bg-amber-200' : 'bg-neutral-50'}`} title="Toggle Sidebar Controller"><Maximize2 className='w-3.5 h-3.5' /></button>
-                  </div>
 
-                  {/* Integrated Memo Voice Blocks */}
-                  <div className='flex items-center gap-2'>
-                    {activeNote?.audioUrl ? (
-                      <div className='flex items-center gap-2 bg-neutral-50 border-2 border-black rounded-xl px-2 py-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] text-[10px]'>
-                        <audio src={activeNote.audioUrl} controls className='h-5 w-36 accent-black' />
-                        <button onClick={() => updateActiveNoteField({ audioUrl: undefined })} className='text-red-500 cursor-pointer'><XIcon className='w-3 h-3 stroke-[3]' /></button>
+            {/* ── CANVAS VIEW ── */}
+            {view === 'canvas' && (
+              <motion.div key='canvas' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className='flex-1 flex flex-col overflow-hidden'>
+
+                {!activeNote ? (
+                  <div className='flex-1 flex items-center justify-center'>
+                    <Empty label='Create a new note to start writing' onAdd={newNote} />
+                  </div>
+                ) : (
+                  <>
+                    {/* Canvas toolbar */}
+                    <div className='flex items-center justify-between px-5 py-3 border-b-2 border-black/10 bg-white shrink-0'>
+                      <div className='flex items-center gap-2'>
+                        {/* Sidebar toggle */}
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowSidebar(s => !s)}
+                          className={`p-2 border-2 border-black rounded-xl cursor-pointer transition-colors ${showSidebar ? 'bg-[#faedcd]' : 'bg-white hover:bg-[#fefae0]'}`}>
+                          <Maximize2Icon size={14} />
+                        </motion.button>
+
+                        {/* Format toggle */}
+                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowFormat(s => !s)}
+                          className={`flex items-center gap-1.5 px-3 py-2 border-2 border-black rounded-xl cursor-pointer text-xs uppercase transition-colors ${showFormat ? 'bg-[#faedcd]' : 'bg-white hover:bg-[#fefae0]'}`}>
+                          <SlidersIcon size={13} /> Format
+                        </motion.button>
+
+                        {/* Image buttons */}
+                        <div className='flex items-center gap-1'>
+                          <motion.button whileTap={{ scale: 0.9 }}
+                            onClick={() => setShowImageInput(s => !s)}
+                            className='flex items-center gap-1.5 px-3 py-2 border-2 border-black rounded-xl cursor-pointer text-xs uppercase bg-white hover:bg-[#fefae0] transition-colors'>
+                            <ImageIcon size={13} /> URL
+                          </motion.button>
+                          <motion.button whileTap={{ scale: 0.9 }}
+                            onClick={() => fileInputRef.current?.click()}
+                            className='flex items-center gap-1.5 px-3 py-2 border-2 border-black rounded-xl cursor-pointer text-xs uppercase bg-white hover:bg-[#fefae0] transition-colors'>
+                            <UploadIcon size={13} /> Upload
+                          </motion.button>
+                          <input ref={fileInputRef} type='file' accept='image/*' className='hidden' onChange={addImageFromFile} />
+                        </div>
                       </div>
-                    ) : (
-                      <div>
-                        {!isRecording ? (
-                          <button onClick={startRecording} className='flex items-center gap-1 px-2.5 py-1 bg-white border-2 border-black rounded-xl text-red-600 font-bold text-[10px] shadow-[2px_2px_0px_rgba(0,0,0,1)] cursor-pointer'><Mic className='w-3 h-3 fill-red-600' /> AUDIO MEMO</button>
+
+                      {/* Audio */}
+                      <div className='flex items-center gap-2'>
+                        {activeNote.audioUrl ? (
+                          <div className='flex items-center gap-2 bg-[#fefae0] border-2 border-black rounded-xl px-2.5 py-1.5'>
+                            <audio src={activeNote.audioUrl} controls className='h-6 w-36' />
+                            <button onClick={() => updateNote({ audioUrl: undefined })} className='cursor-pointer opacity-40 hover:opacity-100'><XIcon size={13} /></button>
+                          </div>
                         ) : (
-                          <button onClick={stopRecording} className='flex items-center gap-1 px-2.5 py-1 bg-red-600 border-2 border-black rounded-xl text-white font-bold text-[10px] animate-pulse shadow-[2px_2px_0px_rgba(0,0,0,1)] cursor-pointer'><Square className='w-3 h-3 fill-white' /> STOP REC</button>
+                          <motion.button whileTap={{ scale: 0.9 }}
+                            onClick={isRecording ? stopRecording : startRecording}
+                            className={`flex items-center gap-1.5 px-3 py-2 border-2 border-black rounded-xl cursor-pointer text-xs uppercase transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-white hover:bg-[#ffadad]'}`}>
+                            {isRecording ? <><SquareIcon size={12} /> Stop</> : <><MicIcon size={12} /> Record</>}
+                          </motion.button>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                {/* Properties Styling Control Board Panel Overlay */}
-                <AnimatePresence>
-                  {showThemePanel && (
-                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className='absolute left-5 top-16 bg-white border-4 border-black p-4 rounded-2xl shadow-[6px_6px_0px_rgba(0,0,0,1)] z-30 w-72 space-y-4 text-black'>
-                      <div className='flex justify-between items-center border-b-2 border-black pb-1.5'>
-                        <span className='text-[9px] font-black uppercase text-neutral-400 flex items-center gap-1'><Sliders className='w-3 h-3' /> CANVAS MATRICES</span>
-                        <button onClick={() => setShowThemePanel(false)} className='cursor-pointer'><XIcon className='w-3.5 h-3.5' /></button>
-                      </div>
+                    {/* Image URL input */}
+                    <AnimatePresence>
+                      {showImageInput && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                          className='px-5 py-3 bg-[#fefae0] border-b-2 border-black/10 flex items-center gap-2 shrink-0'>
+                          <ImageIcon size={14} className='opacity-40' />
+                          <input value={imageInput} onChange={e => setImageInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && addImageFromUrl()}
+                            placeholder='Paste image URL and press Enter...'
+                            className='flex-1 bg-white border-2 border-black rounded-xl px-3 py-2 text-xs outline-none font-luckiest placeholder:opacity-30' />
+                          <motion.button whileTap={{ scale: 0.95 }} onClick={addImageFromUrl}
+                            className='bg-[#d4a373] border-2 border-black px-4 py-2 rounded-xl text-xs uppercase cursor-pointer'>Add</motion.button>
+                          <button onClick={() => setShowImageInput(false)} className='cursor-pointer opacity-40 hover:opacity-100'><XIcon size={16} /></button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-                      <div className='grid grid-cols-2 gap-2'>
-                        <div>
-                          <span className='text-[8px] font-black uppercase text-neutral-400 block mb-1'>Sheet Hex Color</span>
-                          <div className='flex items-center gap-1 border-2 border-black rounded-lg p-1 bg-neutral-50 relative overflow-hidden h-8'>
-                            <input type='color' value={activeNote.color} onChange={(e) => updateActiveNoteField({ color: e.target.value })} className='absolute inset-0 opacity-0 cursor-pointer w-full h-full' />
-                            <div className='w-4 h-4 rounded border border-black/20 shrink-0' style={{ backgroundColor: activeNote.color }} />
-                            <span className='text-[10px] font-mono uppercase truncate font-bold'>{activeNote.color}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <span className='text-[8px] font-black uppercase text-neutral-400 block mb-1'>Ink Font Color</span>
-                          <div className='flex items-center gap-1 border-2 border-black rounded-lg p-1 bg-neutral-50 relative overflow-hidden h-8'>
-                            <input type='color' value={activeNote.textColor} onChange={(e) => updateActiveNoteField({ textColor: e.target.value })} className='absolute inset-0 opacity-0 cursor-pointer w-full h-full' />
-                            <div className='w-4 h-4 rounded border border-black/20 shrink-0' style={{ backgroundColor: activeNote.textColor }} />
-                            <span className='text-[10px] font-mono uppercase truncate font-bold'>{activeNote.textColor}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className='space-y-2 text-[9px]'>
-                        <div>
-                          <span className='font-black text-neutral-400 uppercase block mb-1'>Font Scaling Matrix</span>
-                          <div className='grid grid-cols-4 gap-1 border-2 border-black p-0.5 rounded-lg bg-neutral-50'>
-                            {(['text-xs', 'text-sm', 'text-base', 'text-lg'] as const).map(sz => (
-                              <button key={sz} onClick={() => updateActiveNoteField({ fontSize: sz })} className={`py-1 rounded text-[9px] font-bold cursor-pointer uppercase ${activeNote.fontSize === sz ? 'bg-black text-white shadow-none' : 'hover:bg-neutral-200 text-black'}`}>{sz.replace('text-', '')}</button>
+                    {/* Format panel */}
+                    <AnimatePresence>
+                      {showFormat && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                          className='px-5 py-3 bg-white border-b-2 border-black/10 flex flex-wrap items-center gap-3 shrink-0'>
+                          {/* Text style */}
+                          <div className='flex gap-1'>
+                            {[
+                              { icon: <BoldIcon size={13} />, cls: 'font-bold' },
+                              { icon: <ItalicIcon size={13} />, cls: 'italic' },
+                              { icon: <UnderlineIcon size={13} />, cls: 'underline' },
+                              { icon: <StrikethroughIcon size={13} />, cls: 'line-through' },
+                            ].map((f, i) => (
+                              <button key={i} onClick={() => toggleFormat(f.cls)}
+                                className={`p-2 border-2 border-black rounded-lg cursor-pointer transition-colors ${activeNote.textDecoration.includes(f.cls) ? 'bg-[#ccd5ae]' : 'hover:bg-[#fefae0]'}`}>
+                                {f.icon}
+                              </button>
                             ))}
                           </div>
-                        </div>
-
-                        <div>
-                          <span className='font-black text-neutral-400 uppercase block mb-1'>Line Height Spacing</span>
-                          <div className='grid grid-cols-3 gap-1 border-2 border-black p-0.5 rounded-lg bg-neutral-50'>
-                            {(['leading-normal', 'leading-relaxed', 'leading-loose'] as const).map(lh => (
-                              <button key={lh} onClick={() => updateActiveNoteField({ lineHeight: lh })} className={`py-1 rounded text-[8px] font-bold cursor-pointer uppercase ${activeNote.lineHeight === lh ? 'bg-black text-white' : 'hover:bg-neutral-200 text-black'}`}>{lh.replace('leading-', '')}</button>
+                          <div className='w-px h-5 bg-black/10' />
+                          {/* Font */}
+                          <div className='flex gap-1'>
+                            {(['font-sans', 'font-mono', 'font-serif'] as const).map(f => (
+                              <button key={f} onClick={() => updateNote({ fontStyle: f })}
+                                className={`px-2.5 py-1 border-2 border-black rounded-lg text-xs cursor-pointer transition-colors ${activeNote.fontStyle === f ? 'bg-[#ccd5ae]' : 'hover:bg-[#fefae0]'}`}>
+                                {f.replace('font-', '')}
+                              </button>
                             ))}
                           </div>
-                        </div>
+                          <div className='w-px h-5 bg-black/10' />
+                          {/* Size */}
+                          <div className='flex gap-1'>
+                            {(['text-xs', 'text-sm', 'text-base', 'text-lg'] as const).map(s => (
+                              <button key={s} onClick={() => updateNote({ fontSize: s })}
+                                className={`px-2.5 py-1 border-2 border-black rounded-lg text-xs cursor-pointer transition-colors ${activeNote.fontSize === s ? 'bg-[#ccd5ae]' : 'hover:bg-[#fefae0]'}`}>
+                                {s.replace('text-', '')}
+                              </button>
+                            ))}
+                          </div>
+                          <div className='w-px h-5 bg-black/10' />
+                          {/* Canvas color */}
+                          <div className='flex items-center gap-2'>
+                            <span className='text-[10px] opacity-40 uppercase'>Bg</span>
+                            <div className='relative'>
+                              <input type='color' value={activeNote.color}
+                                onChange={e => updateNote({ color: e.target.value })}
+                                className='w-7 h-7 rounded-lg border-2 border-black cursor-pointer' />
+                            </div>
+                          </div>
+                          {/* Text color */}
+                          <div className='flex items-center gap-2'>
+                            <span className='text-[10px] opacity-40 uppercase'>Text</span>
+                            <input type='color' value={activeNote.textColor}
+                              onChange={e => updateNote({ textColor: e.target.value })}
+                              className='w-7 h-7 rounded-lg border-2 border-black cursor-pointer' />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Floating text format bubble */}
+                    <AnimatePresence>
+                      {bubbleMenu.show && (
+                        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                          onMouseDown={e => e.stopPropagation()}
+                          style={{ position: 'fixed', left: bubbleMenu.x, top: bubbleMenu.y, zIndex: 50 }}
+                          className='bg-white border-4 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-1.5 flex items-center gap-1'>
+                          {[
+                            { icon: <BoldIcon size={13} />, cls: 'font-bold' },
+                            { icon: <ItalicIcon size={13} />, cls: 'italic' },
+                            { icon: <UnderlineIcon size={13} />, cls: 'underline' },
+                            { icon: <StrikethroughIcon size={13} />, cls: 'line-through' },
+                          ].map((f, i) => (
+                            <button key={i} onClick={() => toggleFormat(f.cls)}
+                              className={`p-1.5 rounded-lg cursor-pointer ${activeNote.textDecoration.includes(f.cls) ? 'bg-[#ccd5ae]' : 'hover:bg-[#fefae0]'}`}>
+                              {f.icon}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Canvas content */}
+                    <div className='flex-1 overflow-y-auto' style={{ backgroundColor: activeNote.color }}>
+                      <div className='max-w-3xl mx-auto px-8 py-8 space-y-5'>
+
+                        {/* Title */}
+                        <input value={activeNote.title}
+                          onChange={e => updateNote({ title: e.target.value.toUpperCase() })}
+                          placeholder='UNTITLED'
+                          style={{ color: activeNote.textColor }}
+                          className='w-full bg-transparent border-none outline-none text-2xl md:text-4xl font-oi uppercase placeholder:opacity-20 focus:ring-0 p-0' />
+
+                        <p className='text-[10px] opacity-30 uppercase font-sans'>{activeNote.createdAt}</p>
+
+                        {/* Images grid */}
+                        {activeNote.imageUrls.length > 0 && (
+                          <div className={`grid gap-3 ${activeNote.imageUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            {activeNote.imageUrls.map((url, i) => (
+                              <div key={i} className='relative group border-4 border-black rounded-2xl overflow-hidden shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-h-72'>
+                                <img src={url} alt='' className='w-full h-full object-cover min-h-[140px]'
+                                  onError={e => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect fill="%23e9edc9" width="400" height="200"/><text fill="%23999" font-size="14" x="50%" y="50%" text-anchor="middle" dy=".3em">Image not found</text></svg>'; }} />
+                                <button onClick={() => removeImage(i)}
+                                  className='absolute top-2 right-2 bg-black text-white border-2 border-white p-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer'>
+                                  <XIcon size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Audio */}
+                        {activeNote.audioUrl && (
+                          <div className='bg-white/60 border-2 border-black rounded-xl p-3 flex items-center gap-2'>
+                            <audio src={activeNote.audioUrl} controls className='flex-1 h-8' />
+                            <button onClick={() => updateNote({ audioUrl: undefined })} className='cursor-pointer opacity-40 hover:opacity-100'><XIcon size={14} /></button>
+                          </div>
+                        )}
+
+                        {/* Text editor */}
+                        <textarea ref={textareaRef}
+                          value={activeNote.content}
+                          onChange={e => updateNote({ content: e.target.value })}
+                          onSelect={handleSelect}
+                          placeholder='Start writing...'
+                          style={{ color: activeNote.textColor }}
+                          className={`w-full bg-transparent border-none outline-none resize-none min-h-[400px] placeholder:opacity-20 p-0 focus:ring-0 ${activeNote.fontStyle} ${activeNote.textDecoration} ${activeNote.fontSize} ${activeNote.lineHeight}`}
+                        />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Editor Content Sheet Shell Dynamic Container */}
-                <div className={`flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden space-y-6 max-w-3xl w-full mx-auto ${activeNote.pagePadding}`}>
-                  
-                  {/* Meta Strip Metadata */}
-                  <div className='space-y-2 border-b-2 border-black/5 pb-4 text-black'>
-                    <div className='flex items-center gap-3 text-neutral-400 text-[10px]'>
-                      <div className='flex items-center gap-1 font-black uppercase text-neutral-400'><Calendar className='w-3 h-3 text-black/40' /> Committed Log:</div>
-                      <span className='font-mono text-black font-black bg-white/60 border border-black/10 px-1.5 py-0.5 rounded'>{activeNote.createdAt}</span>
                     </div>
-                    <div className='flex items-center gap-3 text-neutral-400 text-[10px]'>
-                      <div className='flex items-center gap-1 font-black uppercase text-neutral-400'><Sparkles className='w-3 h-3 text-black/40' /> Document Subtitle:</div>
-                      <input type='text' placeholder='APPEND CONFIGURATION FIELD...' value={activeNote.subtitle} onChange={(e) => updateActiveNoteField({ subtitle: e.target.value })} style={{ color: activeNote.textColor }} className='bg-transparent border-none outline-none w-full text-[10px] font-black uppercase tracking-widest placeholder-black/20 p-0 focus:ring-0 font-sans' />
-                    </div>
-                  </div>
-
-                  {/* Title Segment */}
-                  <div className='relative group/title'>
-                    <Heading1 className='absolute -left-7 top-1.5 w-4 h-4 text-neutral-300 opacity-0 group-hover/title:opacity-100 transition-opacity hidden md:block' />
-                    <input type='text' placeholder='UNTITLED DOCUMENT PAGE' value={activeNote.title} onChange={(e) => updateActiveNoteField({ title: e.target.value })} style={{ color: activeNote.textColor }} className='bg-transparent border-none outline-none w-full text-2xl md:text-3xl font-oi uppercase tracking-tight placeholder-black/10 p-0 focus:ring-0' />
-                  </div>
-
-                  {/* Multi-Image Board Layer Rendering Grid */}
-                  {activeNote.imageUrls && activeNote.imageUrls.length > 0 && (
-                    <div className={`grid gap-3 w-full ${activeNote.imageUrls.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {activeNote.imageUrls.map((urlStr, index) => (
-                        <div key={index} className='border-4 border-black bg-white rounded-xl overflow-hidden shadow-[4px_4px_0px_rgba(0,0,0,1)] relative group/img max-h-72'>
-                          <img src={urlStr} alt='' className='w-full h-full object-cover min-h-[140px]' />
-                          <button type='button' onClick={() => updateActiveNoteField({ imageUrls: activeNote.imageUrls.filter((_, idx) => idx !== index) })} className='absolute top-2 right-2 bg-black text-white border-2 border-black p-1.5 rounded-lg opacity-0 group-hover/img:opacity-100 transition-all cursor-pointer'><XIcon className='w-3 h-3 stroke-[3]' /></button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Media Content Injection Toolbar Strip */}
-                  <div className='flex gap-2 bg-neutral-50/90 p-2.5 border-2 border-black rounded-xl text-xs items-center max-w-lg shadow-[2px_2px_0px_rgba(0,0,0,1)] text-black'>
-                    <div className='flex gap-2 flex-1 items-center min-w-0'>
-                      <ImageIcon className='w-4 h-4 text-neutral-400 shrink-0' />
-                      <input 
-                        type='text' placeholder='Paste asset layout image link...' value={imageInput} 
-                        onChange={(e) => setImageInput(e.target.value)} 
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); injectImageToActiveNote(imageInput); } }}
-                        className='flex-1 bg-transparent border-none outline-none font-bold text-xs placeholder:text-black/20 text-neutral-800 min-w-0 focus:ring-0 p-0 font-sans' 
-                      />
-                    </div>
-                    <button onClick={() => injectImageToActiveNote(imageInput)} className='px-2.5 py-1 bg-black text-white text-[9px] uppercase font-black rounded-md shrink-0 cursor-pointer'>Inject</button>
-                    <label className='p-1 border border-black/20 rounded-lg bg-white cursor-pointer hover:bg-neutral-100 shrink-0'>
-                      <Upload className='w-3.5 h-3.5 text-black' />
-                      <input type='file' accept='image/*' onChange={handleLocalImageUpload} className='hidden' />
-                    </label>
-                  </div>
-
-                  {/* Rich Structural Main Workspace Editor Canvas Area */}
-                  <div className='w-full pt-2'>
-                    <textarea
-                      ref={textareaRef} value={activeNote.content}
-                      onChange={(e) => updateActiveNoteField({ content: e.target.value })}
-                      onSelect={handleTextSelection}
-                      placeholder='Write structural parameters, configuration items or layout guides here... Highlight strings to reveal modular styling toolbelt.'
-                      style={{ color: activeNote.textColor }}
-                      className={`w-full bg-transparent border-none outline-none resize-none min-h-[400px] font-bold placeholder-black/10 p-0 focus:ring-0 whitespace-pre-wrap ${activeNote.fontStyle} ${activeNote.textDecoration} ${activeNote.fontSize} ${activeNote.lineHeight}`}
-                    />
-                  </div>
-                </div>
+                  </>
+                )}
               </motion.div>
-            ) : (
-              
-              /* ========================================================
-                 VIEW MODE B: BENTO MULTI-RESOURCE ASSET CONTAINER 
-                 ======================================================== */
-              <motion.div 
-                key="matrix-view" initial={{ opacity: 0, scale: 0.99 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.99 }}
-                className='w-full h-full flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden space-y-6'
-              >
-                {/* Internal Sorting Actions Row */}
-                <div className='flex gap-2 flex-wrap items-center justify-between bg-white border-4 border-black rounded-2xl p-3 shadow-[4px_4px_0px_rgba(0,0,0,1)] shrink-0'>
-                  <div className='flex gap-1.5 flex-wrap bg-neutral-100 p-0.5 rounded-xl border-2 border-black'>
-                    {['All', ...INTEL_TYPES].map(typeNode => (
-                      <button
-                        key={typeNode} onClick={() => setFilterAssetType(typeNode)}
-                        className={`px-3 py-1 text-[10px] uppercase transition-all font-black rounded-lg cursor-pointer
-                          ${filterAssetType === typeNode ? 'bg-black text-white shadow-none' : 'text-black hover:bg-neutral-200'}`}
-                      >
-                        {typeNode}s
+            )}
+
+            {/* ── VAULT VIEW ── */}
+            {view === 'vault' && (
+              <motion.div key='vault' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className='flex-1 overflow-y-auto p-5 space-y-5'>
+
+                {/* Filter row */}
+                <div className='flex items-center justify-between gap-3 flex-wrap'>
+                  <div className='flex gap-1.5 bg-white border-4 border-black rounded-xl p-1 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'>
+                    {['All', ...ASSET_TYPES].map(f => (
+                      <button key={f} onClick={() => setAssetFilter(f)}
+                        className={`px-3 py-1.5 text-xs uppercase rounded-lg cursor-pointer transition-all ${assetFilter === f ? 'bg-[#d4a373] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]' : 'hover:bg-[#fefae0]'}`}>
+                        {f}
                       </button>
                     ))}
                   </div>
-                  <p className='text-[10px] font-oi uppercase tracking-tight opacity-40 pr-1'>Active Token Safe Registry</p>
+                  <motion.button whileHover={{ scale: 1.04, x: 2, y: 2, boxShadow: 'none' }} whileTap={{ scale: 0.96 }}
+                    onClick={() => setShowNewAsset(true)}
+                    className='flex items-center gap-1.5 bg-[#d4a373] border-4 border-black px-4 py-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-xs uppercase cursor-pointer'>
+                    <PlusIcon size={13} /> Drop Asset
+                  </motion.button>
                 </div>
 
-                {/* Drop Resource Structural Submission Input Container Panel */}
+                {/* New asset form */}
                 <AnimatePresence>
-                  {showNewAssetForm && (
-                    <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
-                      className='bg-white border-4 border-black rounded-[24px] p-5 shadow-[6px_6px_0px_rgba(0,0,0,1)] space-y-4 w-full max-w-2xl mx-auto text-black'
-                    >
-                      <div className='flex items-center justify-between border-b-2 border-black/10 pb-1.5'>
-                        <h3 className='text-sm uppercase font-oi tracking-tight text-black'>Log Quick Micro Asset</h3>
-                        <button onClick={() => setShowNewAssetForm(false)} className='p-1 hover:bg-neutral-100 rounded-lg cursor-pointer'><XIcon size={14} /></button>
+                  {showNewAsset && (
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                      className='bg-white border-4 border-black rounded-2xl p-5 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-3 max-w-2xl'>
+                      <div className='flex items-center justify-between'>
+                        <h3 className='text-lg font-oi uppercase'>New Asset</h3>
+                        <button onClick={() => setShowNewAsset(false)} className='cursor-pointer opacity-40 hover:opacity-100'><XIcon size={16} /></button>
                       </div>
-
-                      <input 
-                        className='w-full bg-[#fefae0] border-2 border-black rounded-xl p-2.5 text-xs font-bold uppercase tracking-wide placeholder:text-black/30'
-                        placeholder='Asset Entry Node Title...' value={newAsset.title} 
-                        onChange={e => setNewAsset(r => ({ ...r, title: e.target.value }))} 
-                      />
-                      
-                      <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 items-center'>
-                        <div className='flex flex-col gap-1'>
-                          <label className='text-[9px] uppercase opacity-40 font-black px-1'>Medium Identity Type</label>
-                          <select 
-                            className='w-full bg-[#fefae0] border-2 border-black rounded-xl p-2.5 text-xs font-bold uppercase tracking-wide cursor-pointer'
-                            value={newAsset.type} onChange={e => setNewAsset(r => ({ ...r, type: e.target.value as IntelAsset['type'] }))}
-                          >
-                            {INTEL_TYPES.map(t => <option key={t} className='text-black'>{t}</option>)}
-                          </select>
-                        </div>
-
-                        <div className='flex flex-col gap-1 items-start sm:items-end w-full'>
-                          <label className='text-[9px] uppercase opacity-40 font-black px-1 sm:pr-2'>Visual Identification Card Variant</label>
-                          <div className='flex gap-1 items-center py-1'>
-                            {VAULT_COLORS.map(cOpt => (
-                              <button 
-                                key={cOpt} type="button" onClick={() => setNewAsset(r => ({ ...r, color: cOpt }))}
-                                className={`w-7 h-7 ${cOpt} border-2 rounded-xl cursor-pointer transition-all
-                                  ${newAsset.color === cOpt ? 'border-black scale-110 shadow-[2px_2px_0px_rgba(0,0,0,1)]' : 'border-black/20'}`} 
-                              />
-                            ))}
-                          </div>
+                      <input value={newAsset.title} onChange={e => setNewAsset(p => ({ ...p, title: e.target.value }))}
+                        placeholder='Asset title...'
+                        className='w-full bg-[#fefae0] border-2 border-black rounded-xl px-3 py-2.5 text-sm font-luckiest uppercase outline-none placeholder:opacity-30' />
+                      <div className='grid grid-cols-2 gap-3'>
+                        <select value={newAsset.type} onChange={e => setNewAsset(p => ({ ...p, type: e.target.value as Asset['type'] }))}
+                          className='bg-[#fefae0] border-2 border-black rounded-xl px-3 py-2.5 text-xs font-luckiest uppercase outline-none cursor-pointer'>
+                          {ASSET_TYPES.map(t => <option key={t}>{t}</option>)}
+                        </select>
+                        <div className='flex items-center gap-1.5'>
+                          {COLORS.map(c => (
+                            <button key={c} onClick={() => setNewAsset(p => ({ ...p, color: c }))}
+                              className={`w-7 h-7 ${c} border-2 rounded-xl cursor-pointer transition-transform ${newAsset.color === c ? 'border-black scale-110' : 'border-black/20'}`} />
+                          ))}
                         </div>
                       </div>
-
-                      <div className='flex flex-col gap-1'>
-                        <label className='text-[9px] uppercase opacity-40 font-black px-1'>Data Config / Body Parameters</label>
-                        <textarea 
-                          className='w-full bg-[#fefae0] border-2 border-black rounded-xl p-3 text-xs font-mono font-bold outline-none resize-none placeholder:text-black/30'
-                          placeholder='Paste code tokens, links, markdown properties or short configurations here...' rows={4} 
-                          value={newAsset.content} onChange={e => setNewAsset(r => ({ ...r, content: e.target.value }))} 
-                        />
-                      </div>
-                      
-                      <div className='flex gap-2.5 pt-1'>
-                        <button onClick={createAssetNode} className='flex-1 bg-[#ccd5ae] border-2 border-black rounded-xl py-2 uppercase text-xs shadow-[2px_2px_0px_rgba(0,0,0,1)] font-black cursor-pointer hover:bg-black hover:text-white transition-colors'>Commit Asset Card</button>
-                        <button onClick={() => setShowNewAssetForm(false)} className='flex-1 bg-white border-2 border-black rounded-xl py-2 uppercase text-xs shadow-[2px_2px_0px_rgba(0,0,0,1)] font-black cursor-pointer hover:bg-neutral-50'>Cancel</button>
+                      <textarea value={newAsset.content} onChange={e => setNewAsset(p => ({ ...p, content: e.target.value }))}
+                        placeholder='Paste content, link, or code...'
+                        rows={3}
+                        className='w-full bg-[#fefae0] border-2 border-black rounded-xl px-3 py-2.5 text-xs font-mono outline-none resize-none placeholder:opacity-30' />
+                      <div className='flex gap-2'>
+                        <motion.button whileTap={{ scale: 0.96 }} onClick={addAsset}
+                          className='flex-1 bg-[#d4a373] border-4 border-black rounded-xl py-2.5 text-xs uppercase cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'>
+                          Save Asset
+                        </motion.button>
+                        <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowNewAsset(false)}
+                          className='flex-1 bg-white border-4 border-black rounded-xl py-2.5 text-xs uppercase cursor-pointer shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'>
+                          Cancel
+                        </motion.button>
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Active Populated Card Matrix Canvas Deck */}
+                {/* Asset grid */}
                 {filteredAssets.length === 0 ? (
-                  <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className='bg-white border-4 border-black rounded-[28px] p-10 shadow-[6px_6px_0px_rgba(0,0,0,1)] text-center flex flex-col items-center justify-center max-w-xl mx-auto space-y-4 my-6 text-black'>
-                    <div className='bg-[#ffd6a5] border-2 border-black p-3.5 rounded-xl shadow-[3px_3px_0px_rgba(0,0,0,1)]'><ArchiveIcon size={28} /></div>
-                    <div className='space-y-1'>
-                      <h2 className='text-lg font-oi uppercase tracking-tight'>Matrix Vault Unoccupied</h2>
-                      <p className='text-[11px] font-sans font-bold opacity-40 max-w-sm mx-auto leading-relaxed uppercase'>No configuration snippets, URLs, or quick parameters have been parsed into persistent structural layout decks yet.</p>
-                    </div>
-                    <button onClick={() => setShowNewAssetForm(true)} className='bg-[#e9edc9] border-2 border-black px-5 py-2 rounded-xl uppercase text-xs shadow-[3px_3px_0px_rgba(0,0,0,1)] font-black cursor-pointer hover:bg-black hover:text-white transition-colors'>⚡ Drop Your First Asset</button>
-                  </motion.div>
+                  <div className='h-64'>
+                    <Empty label='Drop links, code snippets, and notes into your vault' onAdd={() => setShowNewAsset(true)} />
+                  </div>
                 ) : (
-                  <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-12'>
-                    {filteredAssets.map(assetNode => (
-                      <motion.div key={assetNode.id} layout className={`${assetNode.color} border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] flex flex-col justify-between space-y-3 relative group text-black`}>
-                        <div>
-                          <div className='flex justify-between items-center mb-1.5'>
-                            <span className='bg-white border-2 border-black px-2 py-0.5 rounded-md text-[8px] uppercase tracking-wider font-black flex items-center gap-1 shadow-[1px_1px_0px_rgba(0,0,0,1)]'>
-                              {assetNode.type === 'Link' && <LinkIcon size={9} />}
-                              {assetNode.type === 'Snippet' && <CodeIcon size={9} />}
-                              {assetNode.type === 'Quick Note' && <FileTextIcon size={9} />}
-                              {assetNode.type}
-                            </span>
-                            
-                            <button 
-                              onClick={() => setAssets(prev => prev.filter(item => item.id !== assetNode.id))} 
-                              className='sm:opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-white hover:bg-red-100 rounded-md border-2 border-black shadow-[1px_1px_0px_rgba(0,0,0,1)] cursor-pointer'
-                            >
+                  <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'>
+                    <AnimatePresence>
+                      {filteredAssets.map(a => (
+                        <motion.div key={a.id} layout
+                          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                          className={`${a.color} border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col gap-3 relative group`}>
+                          <div className='flex items-start justify-between gap-2'>
+                            <div>
+                              <span className='inline-flex items-center gap-1 bg-white border-2 border-black px-2 py-0.5 rounded-lg text-[10px] uppercase font-luckiest shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] mb-1.5'>
+                                {a.type === 'Link' && <LinkIcon size={9} />}
+                                {a.type === 'Snippet' && <CodeIcon size={9} />}
+                                {a.type === 'Note' && <FileTextIcon size={9} />}
+                                {a.type}
+                              </span>
+                              <p className='text-sm uppercase leading-tight'>{a.title}</p>
+                            </div>
+                            <button onClick={() => setAssets(prev => prev.filter(x => x.id !== a.id))}
+                              className='opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border-2 border-black rounded-xl cursor-pointer hover:bg-[#ffadad]'>
                               <Trash2Icon size={12} />
                             </button>
                           </div>
-                          
-                          <h3 className='text-xs font-oi uppercase tracking-tight leading-tight mb-2 break-words'>{assetNode.title}</h3>
-                          <div className='bg-white/50 p-2.5 rounded-xl border-2 border-black/10 font-mono text-[11px] font-bold max-h-28 overflow-y-auto break-all [&::-webkit-scrollbar]:hidden'>{assetNode.content}</div>
-                        </div>
-
-                        <button 
-                          onClick={() => { navigator.clipboard.writeText(assetNode.content); setCopiedAssetId(assetNode.id); setTimeout(() => setCopiedAssetId(null), 1500); }} 
-                          className='w-full bg-white hover:bg-black hover:text-white transition-colors border-2 border-black rounded-xl py-1.5 text-[10px] uppercase flex items-center justify-center gap-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] font-black cursor-pointer'
-                        >
-                          {copiedAssetId === assetNode.id ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
-                          {copiedAssetId === assetNode.id ? 'Copied Data Node!' : 'Copy Asset Raw Data'}
-                        </button>
-                      </motion.div>
-                    ))}
+                          <p className='text-xs font-mono bg-white/50 border border-black/10 rounded-xl p-2.5 break-all max-h-24 overflow-y-auto font-sans'>
+                            {a.content}
+                          </p>
+                          <motion.button whileTap={{ scale: 0.95 }} onClick={() => copyAsset(a.content, a.id)}
+                            className='flex items-center justify-center gap-1.5 bg-white border-2 border-black rounded-xl py-2 text-xs uppercase cursor-pointer hover:bg-black hover:text-white transition-colors'>
+                            {copiedId === a.id ? <><CheckIcon size={12} /> Copied!</> : <><CopyIcon size={12} /> Copy</>}
+                          </motion.button>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 )}
               </motion.div>
             )}
           </AnimatePresence>
-
         </div>
-
       </div>
     </div>
   );
