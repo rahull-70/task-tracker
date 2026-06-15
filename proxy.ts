@@ -10,7 +10,7 @@ export function proxy(request: NextRequest) {
   const user = token ? verifyToken(token) : null;
 
   const isProtected = pathname.startsWith('/dashboard') || pathname.startsWith('/board');
-  const isAuthPage = pathname === '/login' || pathname === '/sign-in';
+  const isAuthPage = pathname === '/login' || pathname === '/sign-up';
 
   // Redirect logged-out users away from protected pages
   if (isProtected && !user) {
@@ -26,5 +26,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/board/:path*', '/login', '/sign-in'],
+  matcher: ['/dashboard/:path*', '/board/:path*', '/login', '/sign-up'],
 };
