@@ -37,8 +37,8 @@ export default function Navbar({
         </Link>
 
         <div className='hidden md:flex items-center gap-5 text-sm uppercase opacity-50 font-luckiest flex-shrink'>
-          <Link href='#features' className='hover:opacity-100 transition-opacity whitespace-nowrap'>
-            Features
+          <Link href='/focus' className='hover:opacity-100 transition-opacity whitespace-nowrap'>
+            Focus
           </Link>
           <Link href='/board' className='hover:opacity-100 transition-opacity whitespace-nowrap'>
             Dashboard
@@ -49,8 +49,8 @@ export default function Navbar({
           <Link href='/strategies' className='hover:opacity-100 transition-opacity whitespace-nowrap'>
             Strategies
           </Link>
-          <Link href='#pricing' className='hover:opacity-100 transition-opacity whitespace-nowrap'>
-            Pricing
+          <Link href='premium' className='hover:opacity-100 transition-opacity whitespace-nowrap'>
+            Premium
           </Link>
         </div>
 
