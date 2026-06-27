@@ -66,7 +66,7 @@ const getLevel = (xp: number) => {
 
 // ── Premium Lock Overlay ───────────────────────────────────────────────────────
 const PremiumLock = ({ label = 'Premium Feature' }: { label?: string }) => (
-  <div className='absolute inset-0 bg-black/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-2xl gap-3'>
+  <div className='absolute inset-0 bg-black/10 backdrop-blur-xs z-20 flex flex-col items-center justify-center rounded-2xl gap-3'>
     <div className='bg-[#d4a373] border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
       <LockIcon size={28} />
     </div>
@@ -753,7 +753,7 @@ const Dashboard = () => {
               width={40}
               height={40}
               unoptimized
-              className={stats.streak === 0 ? 'grayscale opacity-40' : ''}
+              className={stats.streak === 0 ? ' opacity-100' : ''}
             />
           </motion.div>
         </div>

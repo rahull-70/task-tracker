@@ -54,9 +54,7 @@ export default function Navbar({
           </Link>
         </div>
 
-        {/* ── AUTH BUTTONS ──
-            No skeleton flash: render the guest (signed-out) buttons immediately.
-            Once auth resolves, crossfade to the logged-in state if needed. */}
+        {/* ── AUTH BUTTONS ──*/}
         <div className='flex items-center gap-2 flex-shrink-0 relative min-h-[40px]'>
 
           {/* Guest buttons — visible by default, fade out once we know user is logged in */}

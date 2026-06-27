@@ -40,17 +40,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkSession = async () => {
     try {
-      const res = await fetch('/api/auth/session');
+      // credentials: 'include' ensures the auth_token cookie is always sent
+      const res = await fetch('/api/auth/session', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-      if (!res.ok) {
-        setUser(null);
-        setIsLoggedIn(false);
-        return;
-      }
-
+      // Session route always returns 200 — check for user in body
       const data = await res.json();
 
-      if (data?.user) {
+      if (data?.user?.id) {
         setUser(data.user);
         setIsLoggedIn(true);
       } else {
@@ -77,13 +76,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
       if (!res.ok) return { error: data.error || 'Login failed.' };
 
-      // Cookie is set by the route; now fetch the full session
+      // Cookie is now set — re-check session to sync state
       await checkSession();
       return {};
     } catch {
@@ -100,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ codename, email, password }),
       });
 
@@ -118,6 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email }),
       });
 
@@ -130,7 +132,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
     setUser(null);
     setIsLoggedIn(false);
   };
