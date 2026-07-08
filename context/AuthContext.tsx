@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   ReactNode,
+  useCallback,
 } from 'react';
 
 interface AuthUser {
@@ -21,11 +22,7 @@ interface AuthContextType {
   isLoading: boolean;
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<{ error?: string }>;
-  register: (
-    codename: string,
-    email: string,
-    password: string,
-  ) => Promise<{ error?: string }>;
+  register: (codename: string, email: string, password: string) => Promise<{ error?: string }>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -38,15 +35,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  const checkSession = async () => {
+  const checkSession = useCallback(async () => {
     try {
-      // credentials: 'include' ensures the auth_token cookie is always sent
       const res = await fetch('/api/auth/session', {
         credentials: 'include',
         cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
       });
 
-      // Session route always returns 200 — check for user in body
       const data = await res.json();
 
       if (data?.user?.id) {
@@ -60,18 +56,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setIsLoggedIn(false);
     } finally {
+      // Always set loading false — page guards wait for this
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkSession();
-  }, []);
+  }, [checkSession]);
 
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<{ error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ error?: string }> => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -83,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const data = await res.json();
       if (!res.ok) return { error: data.error || 'Login failed.' };
 
-      // Cookie is now set — re-check session to sync state
+      // Sync state — await so caller can navigate only after isLoggedIn = true
       await checkSession();
       return {};
     } catch {
@@ -91,11 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (
-    codename: string,
-    email: string,
-    password: string,
-  ): Promise<{ error?: string }> => {
+  const register = async (codename: string, email: string, password: string): Promise<{ error?: string }> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -145,18 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        isLoggedIn,
-        isLoading,
-        user,
-        login,
-        register,
-        resetPassword,
-        logout,
-        refreshUser,
-      }}
-    >
+    <AuthContext.Provider value={{ isLoggedIn, isLoading, user, login, register, resetPassword, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
