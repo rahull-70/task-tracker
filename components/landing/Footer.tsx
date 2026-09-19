@@ -4,9 +4,9 @@ import Link from 'next/link';
 
 export default function Footer() {
   const navLinks = [
-    ['App', '/board'],
-    ['Strategies', '/strategies'],
+    ['Board', '/board'],
     ['Workspace', '/workspace'],
+    ['Strategies', '/strategies'],
     ['Focus', '/focus'],
     ['Premium', '/premium'],
   ];
@@ -20,7 +20,6 @@ export default function Footer() {
   return (
     <footer className='border-t-4 border-black bg-[#fefae0] px-4 sm:px-6 py-10'>
       <div className='max-w-6xl mx-auto flex flex-col md:flex-row items-center md:items-start justify-between gap-8'>
-        
         {/* Brand Identity */}
         <div className='flex flex-col items-center md:items-start gap-2 flex-shrink-0'>
           <span className='text-3xl font-oi uppercase tracking-wide'>
@@ -33,7 +32,6 @@ export default function Footer() {
 
         {/* Links Categories */}
         <div className='flex flex-col sm:flex-row items-center sm:items-start gap-8 md:gap-16 text-center sm:text-left'>
-          
           {/* Main Navigation */}
           <div className='flex flex-col gap-2.5'>
             <span className='font-sans text-[10px] uppercase opacity-40 font-bold'>
@@ -69,14 +67,12 @@ export default function Footer() {
               ))}
             </div>
           </div>
-
         </div>
 
         {/* Mobile Copyright */}
         <p className='font-sans text-xs opacity-40 text-center md:hidden'>
           &copy; 2026 QuestBoard. All rights reserved.
         </p>
-
       </div>
     </footer>
   );

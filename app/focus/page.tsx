@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import Navbar from '@/components/landing/Navbar'; // Adjust path if needed
 import { 
   ArrowLeft, 
   Zap, 
@@ -53,6 +54,9 @@ export default function FocusPage() {
 
   // Audio Control States for the Bottom Dock
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Navbar Mock States
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (!isActive) return;
@@ -118,25 +122,38 @@ export default function FocusPage() {
   };
 
   return (
-    <div className='min-h-screen bg-[#fefae0] font-luckiest flex flex-col overflow-hidden select-none pb-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
+    <div className='min-h-screen bg-[#fefae0] font-luckiest flex flex-col overflow-hidden select-none pb-6 pt-[68px] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]'>
       
-      {/* ── NAV HEADER ── */}
-      <div className='flex items-center justify-between px-6 md:px-10 py-4 border-b-4 border-black bg-white z-20 shrink-0'>
-        <Link href='/board'>
-          <motion.div whileHover={{ scale: 1.04, x: 2, y: 2 }} whileTap={{ scale: 0.96 }}
-            className='flex items-center gap-2 bg-[#e9edc9] border-4 border-black px-4 py-2 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer text-sm uppercase font-black'>
-            <ArrowLeft className='w-4 h-4 stroke-[3]' /> BACK
-          </motion.div>
-        </Link>
-        <h1 className='text-2xl md:text-4xl font-oi uppercase tracking-tight'>QUESTBOARD</h1>
-        <div className='flex items-center gap-2 bg-[#faedcd] border-4 border-black px-4 py-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-sm font-black uppercase'>
-          <Zap className='w-4 h-4 fill-black stroke-black' /> {sessions} SESSIONS
-        </div>
-      </div>
+      {/* ── LANDING NAVBAR ── */}
+      <Navbar
+        isLoggedIn={true}
+        isLoading={false}
+        user={{ codename: 'Commander', email: 'commander@questboard.app' }}
+        logout={async () => {}}
+        dropdownOpen={dropdownOpen}
+        setDropdownOpen={setDropdownOpen}
+      />
 
       {/* ── MAIN HORIZONTAL HUB WORKSPACE ── */}
       <div className='flex-1 flex flex-col items-center justify-center p-4 md:p-6 w-full max-w-7xl mx-auto'>
         
+        {/* PAGE HEADER CONTROLS BAR (Back button & Session Counter) */}
+        <div className='w-full flex items-center justify-between mb-6 px-2 md:px-0'>
+          <Link href='/board'>
+            <motion.div 
+              whileHover={{ scale: 1.04, x: 2, y: 2 }} 
+              whileTap={{ scale: 0.96 }}
+              className='flex items-center gap-2 bg-[#e9edc9] border-4 border-black px-4 py-2 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer text-sm uppercase font-black'
+            >
+              <ArrowLeft className='w-4 h-4 stroke-[3]' /> BACK TO BOARD
+            </motion.div>
+          </Link>
+
+          <div className='flex items-center gap-2 bg-[#faedcd] border-4 border-black px-4 py-2 rounded-xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] text-sm font-black uppercase'>
+            <Zap className='w-4 h-4 fill-black stroke-black' /> {sessions} SESSIONS
+          </div>
+        </div>
+
         {/* ASYMMETRICAL MODE TABS STRIP */}
         <div className='w-full flex items-center justify-between mb-1 px-4 lg:px-6 z-10'>
           <div className='flex gap-3'>
@@ -169,7 +186,7 @@ export default function FocusPage() {
           {/* HORIZONTAL TIMER MODULE CARD */}
           <div className='flex-1 bg-white border-4 border-black rounded-3xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row overflow-hidden items-stretch'>
             
-            {/* LEFT HALF: DEEPER DIGITAL READOUT & INPUT LAYER */}
+            {/* LEFT HALF: DIGITAL READOUT & INPUT LAYER */}
             <div className='flex-1 bg-[#fefae0]/40 p-8 flex flex-col items-center justify-center border-b-4 md:border-b-0 md:border-r-4 border-black min-h-[320px] relative'>
               
               <AnimatePresence mode='wait'>
@@ -362,7 +379,7 @@ export default function FocusPage() {
                             return (
                               <button key={p.id} onClick={() => { setSpotifyId(p.id); setCurrentPlaylistName(p.name.toUpperCase()); }}
                                 className={`flex items-center gap-1.5 px-3 py-2 border-2 border-black rounded-xl text-[11px] uppercase transition-all text-left truncate font-black ${spotifyId === p.id ? 'bg-[#ccd5ae] shadow-[1px_1px_0px_rgba(0,0,0,1)]' : 'bg-[#fefae0] hover:bg-[#e9edc9]'}`}>
-                                <IconComponent className='w-3..5 h-3.5 stroke-[2.5] shrink-0' />
+                                <IconComponent className='w-3.5 h-3.5 stroke-[2.5] shrink-0' />
                                 <span className='truncate'>{p.name}</span>
                               </button>
                             );
@@ -371,7 +388,7 @@ export default function FocusPage() {
 
                         <div className='border-4 border-black rounded-2xl overflow-hidden shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] bg-neutral-900 mt-2'>
                           <iframe
-                            src={`https://open.spotify.com/embed/playlist/$$${spotifyId}?utm_source=generator&theme=0`}
+                            src={`https://open.spotify.com/embed/playlist/${spotifyId}?utm_source=generator&theme=0`}
                             width='100%'
                             height='160'
                             allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture'
