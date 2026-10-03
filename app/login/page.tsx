@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LogIn as LogInIcon,
@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 const LoginForm = () => {
-  const { login, resetPassword } = useAuth();
+  const { login, resetPassword, isLoggedIn, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -24,6 +24,20 @@ const LoginForm = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const targetPath = searchParams.get('from') || '/board';
+
+  // Auto-redirect if already logged in (prevents back-button loops)
+  useEffect(() => {
+    if (!isLoading && isLoggedIn) {
+      router.replace(targetPath);
+    }
+  }, [isLoggedIn, isLoading, router, targetPath]);
+
+  // Prefetch the target route upfront to eliminate transition delay after auth
+  useEffect(() => {
+    router.prefetch(targetPath);
+  }, [router, targetPath]);
 
   const toggleMode = () => {
     setMode(mode === 'login' ? 'forgot' : 'login');
@@ -44,9 +58,8 @@ const LoginForm = () => {
       return;
     }
 
-    // Redirect to ?from= param or /board (never back to landing page)
-    const from = searchParams.get('from') || '/board';
-    router.push(from);
+    // Use router.replace to overwrite /login in browser history
+    router.replace(targetPath);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -211,7 +224,6 @@ const LoginForm = () => {
               )}
             </AnimatePresence>
 
-            {/* Bottom prompt — fixed /sign-in → /sign-up */}
             <p className='text-center mt-8 text-sm opacity-80 uppercase'>
               New Recruit?{' '}
               <Link href='/sign-up' className='text-primary border-b-2 border-primary hover:text-secondary hover:border-secondary'>

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import {
   UserPlusIcon,
@@ -10,12 +10,13 @@ import {
   ShieldCheckIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
-const SignUpPage = () => {
-  const { register } = useAuth();
+const SignUpForm = () => {
+  const { register, isLoggedIn, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState({
     codename: '',
@@ -26,6 +27,20 @@ const SignUpPage = () => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const targetPath = searchParams.get('from') || '/board';
+
+  // Auto-redirect if already logged in (prevents history navigation issues)
+  useEffect(() => {
+    if (!isLoading && isLoggedIn) {
+      router.replace(targetPath);
+    }
+  }, [isLoggedIn, isLoading, router, targetPath]);
+
+  // Prefetch post-registration route upfront
+  useEffect(() => {
+    router.prefetch(targetPath);
+  }, [router, targetPath]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,13 +69,14 @@ const SignUpPage = () => {
       formData.password,
     );
 
-    if (result.error) {
+    if (result?.error) {
       setError(result.error);
       setLoading(false);
       return;
     }
 
-    router.push('/');
+    // Replace /sign-up in history to prevent back button returning here
+    router.replace(targetPath);
   };
 
   return (
@@ -78,7 +94,7 @@ const SignUpPage = () => {
         className='w-full max-w-5xl bg-white border-4 border-black rounded-2xl md:rounded-3xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] md:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative z-10 overflow-hidden'
       >
         <div className='grid md:grid-cols-2'>
-          {/* LEFT */}
+          {/* LEFT PANEL */}
           <div className='bg-[#fefae0] p-6 md:p-12 border-b-4 md:border-b-0 md:border-r-4 border-black flex flex-col justify-center items-center text-center min-h-[320px] md:min-h-[auto]'>
             <motion.div
               whileHover={{ rotate: 360 }}
@@ -97,7 +113,7 @@ const SignUpPage = () => {
             </p>
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT PANEL */}
           <div className='p-6 md:p-10 flex flex-col justify-center bg-white min-h-[450px]'>
             {error && (
               <motion.p
@@ -119,7 +135,7 @@ const SignUpPage = () => {
 
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
-                      <UserIcon size={18} />
+                      <UserIcon size={18} className='group-focus-within:text-primary transition-colors' />
                     </div>
 
                     <input
@@ -146,7 +162,7 @@ const SignUpPage = () => {
 
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
-                      <MailIcon size={18} />
+                      <MailIcon size={18} className='group-focus-within:text-primary transition-colors' />
                     </div>
 
                     <input
@@ -175,7 +191,7 @@ const SignUpPage = () => {
 
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
-                      <LockIcon size={18} />
+                      <LockIcon size={18} className='group-focus-within:text-primary transition-colors' />
                     </div>
 
                     <input
@@ -202,7 +218,7 @@ const SignUpPage = () => {
 
                   <div className='relative group'>
                     <div className='absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none'>
-                      <ShieldCheckIcon size={18} />
+                      <ShieldCheckIcon size={18} className='group-focus-within:text-primary transition-colors' />
                     </div>
 
                     <input
@@ -267,4 +283,10 @@ const SignUpPage = () => {
   );
 };
 
-export default SignUpPage;
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className='min-h-screen bg-soft flex items-center justify-center font-luckiest text-xl uppercase'>Loading...</div>}>
+      <SignUpForm />
+    </Suspense>
+  );
+}

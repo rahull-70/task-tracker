@@ -8,6 +8,7 @@ import {
   LayoutDashboardIcon,
   UserIcon,
   LogInIcon,
+  HomeIcon,
   Plus,
   Zap,
   Target,
@@ -297,6 +298,23 @@ const Page = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* HOME BUTTON */}
+        <Link href='/'>
+          <motion.div
+            whileHover={{ scale: 1.04, x: 3, y: 3, boxShadow: 'none' }}
+            whileTap={{ scale: 0.96 }}
+            className='flex items-center gap-1.5 sm:gap-2 bg-white border-4 border-black px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer group'
+          >
+            <HomeIcon
+              size={18}
+              className='group-hover:-translate-y-0.5 transition-transform flex-shrink-0'
+            />
+            <span className='text-xs sm:text-sm md:text-base uppercase tracking-tight'>
+              Home
+            </span>
+          </motion.div>
+        </Link>
       </div>
 
       {/* HERO SECTION — cleaned up */}
@@ -414,88 +432,224 @@ const Page = () => {
           transition={{ duration: 0.15 }}
           className='border-4 border-black rounded-2xl sm:rounded-3xl overflow-hidden shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white'
         >
-            {/* ── DESKTOP TABLE (md+) ── */}
-            <div className='hidden md:block'>
-              <div className='grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.6fr_0.5fr] bg-white border-b-4 border-black'>
-                {['Quest', 'Priority', 'Duration', 'Status', 'Done', ''].map(
-                  (h, i) => (
-                    <div
-                      key={i}
-                      className={`px-4 py-3 text-xs md:text-sm uppercase opacity-50 tracking-widest ${i > 0 ? 'text-center border-l-2 border-black/10' : 'pl-5'}`}
+          {/* ── DESKTOP TABLE (md+) ── */}
+          <div className='hidden md:block'>
+            <div className='grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.6fr_0.5fr] bg-white border-b-4 border-black'>
+              {['Quest', 'Priority', 'Duration', 'Status', 'Done', ''].map(
+                (h, i) => (
+                  <div
+                    key={i}
+                    className={`px-4 py-3 text-xs md:text-sm uppercase opacity-50 tracking-widest ${i > 0 ? 'text-center border-l-2 border-black/10' : 'pl-5'}`}
+                  >
+                    {h}
+                  </div>
+                ),
+              )}
+            </div>
+
+            <AnimatePresence mode='popLayout'>
+              {tasks.length === 0 && !isLoading && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className='py-16 text-center'
+                >
+                  <div className='text-4xl mb-3'>
+                    {questType === 'short' ? '⚔️' : '🏰'}
+                  </div>
+                  <p className='uppercase opacity-30 text-sm tracking-widest'>
+                    No {questType === 'short' ? 'daily' : 'long-term'} quests
+                    yet
+                  </p>
+                  <p className='uppercase opacity-20 text-xs mt-1'>
+                    Add one below to begin
+                  </p>
+                </motion.div>
+              )}
+
+              {tasks.map((item, i) => (
+                <motion.div
+                  layout
+                  key={item.id || `local-${i}`}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.6fr_0.5fr] border-b border-black/10 last:border-0 items-stretch ${getStatusColor(item.status)}`}
+                >
+                  <input
+                    className={`px-5 py-4 bg-transparent outline-none text-sm md:text-base placeholder:opacity-25 font-luckiest ${item.completed ? 'line-through opacity-40' : ''}`}
+                    value={item.task}
+                    onChange={(e) => updateTask(i, 'task', e.target.value)}
+                    placeholder='Add a mission...'
+                  />
+                  <div
+                    className={`relative border-l-2 border-black/10 ${getPriorityColor(item.priority)}`}
+                  >
+                    <select
+                      className='w-full h-full px-2 py-4 bg-transparent outline-none cursor-pointer appearance-none text-center text-xs font-luckiest'
+                      value={item.priority}
+                      onChange={(e) =>
+                        updateTask(i, 'priority', e.target.value)
+                      }
                     >
-                      {h}
-                    </div>
-                  ),
-                )}
-              </div>
-
-              <AnimatePresence mode='popLayout'>
-                {tasks.length === 0 && !isLoading && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className='py-16 text-center'
+                      <option value='None'>—</option>
+                      <option value='Low'>Low</option>
+                      <option value='Mid'>Mid</option>
+                      <option value='High'>High</option>
+                    </select>
+                    <ChevronDownIcon
+                      size={10}
+                      className='absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
+                    />
+                  </div>
+                  <input
+                    className='px-3 py-4 bg-transparent outline-none border-l-2 border-black/10 text-center text-xs placeholder:opacity-25 font-luckiest'
+                    value={item.duration}
+                    onChange={(e) =>
+                      updateTask(i, 'duration', e.target.value)
+                    }
+                    placeholder='30m'
+                  />
+                  <div className='relative border-l-2 border-black/10'>
+                    <select
+                      className='w-full h-full px-2 py-4 bg-transparent outline-none cursor-pointer appearance-none text-center text-xs font-luckiest'
+                      value={item.status}
+                      onChange={(e) =>
+                        updateTask(i, 'status', e.target.value)
+                      }
+                    >
+                      <option value='Not Started'>Not Started</option>
+                      <option value='In Progress'>In Progress</option>
+                      <option value='Done'>Done</option>
+                    </select>
+                    <ChevronDownIcon
+                      size={10}
+                      className='absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
+                    />
+                  </div>
+                  <div
+                    className='flex justify-center items-center border-l-2 border-black/10 cursor-pointer'
+                    onClick={() =>
+                      updateTask(i, 'completed', !item.completed)
+                    }
                   >
-                    <div className='text-4xl mb-3'>
-                      {questType === 'short' ? '⚔️' : '🏰'}
-                    </div>
-                    <p className='uppercase opacity-30 text-sm tracking-widest'>
-                      No {questType === 'short' ? 'daily' : 'long-term'} quests
-                      yet
-                    </p>
-                    <p className='uppercase opacity-20 text-xs mt-1'>
-                      Add one below to begin
-                    </p>
-                  </motion.div>
-                )}
-
-                {tasks.map((item, i) => (
-                  <motion.div
-                    layout
-                    key={item.id || `local-${i}`}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={`grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.6fr_0.5fr] border-b border-black/10 last:border-0 items-stretch ${getStatusColor(item.status)}`}
+                    <motion.div
+                      whileTap={{ scale: 0.85 }}
+                      className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary shadow-[2px_2px_0px_black]' : 'bg-white'}`}
+                    >
+                      {item.completed && (
+                        <CheckIcon size={16} className='text-white' />
+                      )}
+                    </motion.div>
+                  </div>
+                  <div
+                    onClick={() => removeTask(i)}
+                    className='flex justify-center items-center border-l-2 border-black/10 cursor-pointer hover:bg-red-50 transition-colors group'
                   >
+                    <DeleteIcon
+                      size={18}
+                      className='text-black/20 group-hover:text-red-400 transition-colors'
+                    />
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* ── MOBILE CARDS (below md) ── */}
+          <div className='block md:hidden'>
+            <AnimatePresence mode='popLayout'>
+              {tasks.length === 0 && !isLoading && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className='py-14 text-center'
+                >
+                  <div className='text-4xl mb-3'>
+                    {questType === 'short' ? '⚔️' : '🏰'}
+                  </div>
+                  <p className='uppercase opacity-30 text-sm tracking-widest'>
+                    No {questType === 'short' ? 'daily' : 'long-term'} quests
+                    yet
+                  </p>
+                  <p className='uppercase opacity-20 text-xs mt-1'>
+                    Add one below to begin
+                  </p>
+                </motion.div>
+              )}
+
+              {tasks.map((item, i) => (
+                <motion.div
+                  layout
+                  key={item.id || `local-${i}`}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className={`border-b border-black/10 last:border-0 p-3 ${getStatusColor(item.status)}`}
+                >
+                  <div className='flex items-center gap-2 mb-2'>
                     <input
-                      className={`px-5 py-4 bg-transparent outline-none text-sm md:text-base placeholder:opacity-25 font-luckiest ${item.completed ? 'line-through opacity-40' : ''}`}
+                      className={`flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:opacity-25 font-luckiest ${item.completed ? 'line-through opacity-40' : ''}`}
                       value={item.task}
                       onChange={(e) => updateTask(i, 'task', e.target.value)}
                       placeholder='Add a mission...'
                     />
+                    <motion.div
+                      whileTap={{ scale: 0.85 }}
+                      onClick={() =>
+                        updateTask(i, 'completed', !item.completed)
+                      }
+                      className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center flex-shrink-0 cursor-pointer transition-all ${item.completed ? 'bg-primary shadow-[2px_2px_0px_black]' : 'bg-white'}`}
+                    >
+                      {item.completed && (
+                        <CheckIcon size={14} className='text-white' />
+                      )}
+                    </motion.div>
                     <div
-                      className={`relative border-l-2 border-black/10 ${getPriorityColor(item.priority)}`}
+                      onClick={() => removeTask(i)}
+                      className='w-7 h-7 flex items-center justify-center flex-shrink-0 cursor-pointer group'
+                    >
+                      <DeleteIcon
+                        size={16}
+                        className='text-black/20 group-hover:text-red-400 transition-colors'
+                      />
+                    </div>
+                  </div>
+
+                  <div className='flex items-center gap-2'>
+                    <div
+                      className={`relative flex-1 rounded-lg border-2 border-black/15 ${getPriorityColor(item.priority)}`}
                     >
                       <select
-                        className='w-full h-full px-2 py-4 bg-transparent outline-none cursor-pointer appearance-none text-center text-xs font-luckiest'
+                        className='w-full px-2 py-1.5 bg-transparent outline-none cursor-pointer appearance-none text-center text-[10px] font-luckiest'
                         value={item.priority}
                         onChange={(e) =>
                           updateTask(i, 'priority', e.target.value)
                         }
                       >
-                        <option value='None'>—</option>
+                        <option value='None'>Priority</option>
                         <option value='Low'>Low</option>
                         <option value='Mid'>Mid</option>
                         <option value='High'>High</option>
                       </select>
                       <ChevronDownIcon
-                        size={10}
-                        className='absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
+                        size={8}
+                        className='absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
                       />
                     </div>
                     <input
-                      className='px-3 py-4 bg-transparent outline-none border-l-2 border-black/10 text-center text-xs placeholder:opacity-25 font-luckiest'
+                      className='flex-1 px-2 py-1.5 bg-white/60 border-2 border-black/15 rounded-lg outline-none text-center text-[10px] placeholder:opacity-30 font-luckiest'
                       value={item.duration}
                       onChange={(e) =>
                         updateTask(i, 'duration', e.target.value)
                       }
-                      placeholder='30m'
+                      placeholder='Duration'
                     />
-                    <div className='relative border-l-2 border-black/10'>
+                    <div className='relative flex-1 rounded-lg border-2 border-black/15 bg-white/60'>
                       <select
-                        className='w-full h-full px-2 py-4 bg-transparent outline-none cursor-pointer appearance-none text-center text-xs font-luckiest'
+                        className='w-full px-2 py-1.5 bg-transparent outline-none cursor-pointer appearance-none text-center text-[10px] font-luckiest'
                         value={item.status}
                         onChange={(e) =>
                           updateTask(i, 'status', e.target.value)
@@ -506,165 +660,29 @@ const Page = () => {
                         <option value='Done'>Done</option>
                       </select>
                       <ChevronDownIcon
-                        size={10}
-                        className='absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
+                        size={8}
+                        className='absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
                       />
                     </div>
-                    <div
-                      className='flex justify-center items-center border-l-2 border-black/10 cursor-pointer'
-                      onClick={() =>
-                        updateTask(i, 'completed', !item.completed)
-                      }
-                    >
-                      <motion.div
-                        whileTap={{ scale: 0.85 }}
-                        className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary shadow-[2px_2px_0px_black]' : 'bg-white'}`}
-                      >
-                        {item.completed && (
-                          <CheckIcon size={16} className='text-white' />
-                        )}
-                      </motion.div>
-                    </div>
-                    <div
-                      onClick={() => removeTask(i)}
-                      className='flex justify-center items-center border-l-2 border-black/10 cursor-pointer hover:bg-red-50 transition-colors group'
-                    >
-                      <DeleteIcon
-                        size={18}
-                        className='text-black/20 group-hover:text-red-400 transition-colors'
-                      />
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
 
-            {/* ── MOBILE CARDS (below md) ── */}
-            <div className='block md:hidden'>
-              <AnimatePresence mode='popLayout'>
-                {tasks.length === 0 && !isLoading && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className='py-14 text-center'
-                  >
-                    <div className='text-4xl mb-3'>
-                      {questType === 'short' ? '⚔️' : '🏰'}
-                    </div>
-                    <p className='uppercase opacity-30 text-sm tracking-widest'>
-                      No {questType === 'short' ? 'daily' : 'long-term'} quests
-                      yet
-                    </p>
-                    <p className='uppercase opacity-20 text-xs mt-1'>
-                      Add one below to begin
-                    </p>
-                  </motion.div>
-                )}
-
-                {tasks.map((item, i) => (
-                  <motion.div
-                    layout
-                    key={item.id || `local-${i}`}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className={`border-b border-black/10 last:border-0 p-3 ${getStatusColor(item.status)}`}
-                  >
-                    <div className='flex items-center gap-2 mb-2'>
-                      <input
-                        className={`flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:opacity-25 font-luckiest ${item.completed ? 'line-through opacity-40' : ''}`}
-                        value={item.task}
-                        onChange={(e) => updateTask(i, 'task', e.target.value)}
-                        placeholder='Add a mission...'
-                      />
-                      <motion.div
-                        whileTap={{ scale: 0.85 }}
-                        onClick={() =>
-                          updateTask(i, 'completed', !item.completed)
-                        }
-                        className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center flex-shrink-0 cursor-pointer transition-all ${item.completed ? 'bg-primary shadow-[2px_2px_0px_black]' : 'bg-white'}`}
-                      >
-                        {item.completed && (
-                          <CheckIcon size={14} className='text-white' />
-                        )}
-                      </motion.div>
-                      <div
-                        onClick={() => removeTask(i)}
-                        className='w-7 h-7 flex items-center justify-center flex-shrink-0 cursor-pointer group'
-                      >
-                        <DeleteIcon
-                          size={16}
-                          className='text-black/20 group-hover:text-red-400 transition-colors'
-                        />
-                      </div>
-                    </div>
-
-                    <div className='flex items-center gap-2'>
-                      <div
-                        className={`relative flex-1 rounded-lg border-2 border-black/15 ${getPriorityColor(item.priority)}`}
-                      >
-                        <select
-                          className='w-full px-2 py-1.5 bg-transparent outline-none cursor-pointer appearance-none text-center text-[10px] font-luckiest'
-                          value={item.priority}
-                          onChange={(e) =>
-                            updateTask(i, 'priority', e.target.value)
-                          }
-                        >
-                          <option value='None'>Priority</option>
-                          <option value='Low'>Low</option>
-                          <option value='Mid'>Mid</option>
-                          <option value='High'>High</option>
-                        </select>
-                        <ChevronDownIcon
-                          size={8}
-                          className='absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
-                        />
-                      </div>
-                      <input
-                        className='flex-1 px-2 py-1.5 bg-white/60 border-2 border-black/15 rounded-lg outline-none text-center text-[10px] placeholder:opacity-30 font-luckiest'
-                        value={item.duration}
-                        onChange={(e) =>
-                          updateTask(i, 'duration', e.target.value)
-                        }
-                        placeholder='Duration'
-                      />
-                      <div className='relative flex-1 rounded-lg border-2 border-black/15 bg-white/60'>
-                        <select
-                          className='w-full px-2 py-1.5 bg-transparent outline-none cursor-pointer appearance-none text-center text-[10px] font-luckiest'
-                          value={item.status}
-                          onChange={(e) =>
-                            updateTask(i, 'status', e.target.value)
-                          }
-                        >
-                          <option value='Not Started'>Not Started</option>
-                          <option value='In Progress'>In Progress</option>
-                          <option value='Done'>Done</option>
-                        </select>
-                        <ChevronDownIcon
-                          size={8}
-                          className='absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            {/* ADD ROW */}
-            <motion.button
-              whileHover={{ backgroundColor: '#f5f0e8' }}
-              whileTap={{ scale: 0.99 }}
-              onClick={addTask}
-              className='w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 sm:py-4 border-t-4 border-black bg-white text-black/40 hover:text-black/70 transition-colors cursor-pointer'
-            >
-              <Plus size={15} />
-              <span className='text-xs sm:text-sm uppercase tracking-widest'>
-                Add {questType === 'short' ? 'daily' : 'long-term'} quest
-              </span>
-            </motion.button>
-          </motion.div>
+          {/* ADD ROW */}
+          <motion.button
+            whileHover={{ backgroundColor: '#f5f0e8' }}
+            whileTap={{ scale: 0.99 }}
+            onClick={addTask}
+            className='w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 sm:py-4 border-t-4 border-black bg-white text-black/40 hover:text-black/70 transition-colors cursor-pointer'
+          >
+            <Plus size={15} />
+            <span className='text-xs sm:text-sm uppercase tracking-widest'>
+              Add {questType === 'short' ? 'daily' : 'long-term'} quest
+            </span>
+          </motion.button>
+        </motion.div>
       </div>
 
       {/* DASHBOARD BUTTON */}
