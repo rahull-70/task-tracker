@@ -10,8 +10,8 @@ import {
   LogInIcon,
   HomeIcon,
   Plus,
-  Zap,
-  Target,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import { CheckIcon } from '@/components/ui/check';
 import React, { useEffect, useRef, useState } from 'react';
@@ -20,8 +20,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { createBrowserClient } from '@supabase/ssr';
 import CommandMenu from '@/components/ui/CommandMenu';
-
-type QuestType = 'short' | 'long';
 
 interface Task {
   id?: string;
@@ -32,7 +30,8 @@ interface Task {
   duration: string;
   created_at?: string;
   last_reset_at?: string;
-  quest_type?: 'short' | 'long';
+  is_persistent: boolean;
+  isOptimistic?: boolean;
 }
 
 const Page = () => {
@@ -49,7 +48,7 @@ const Page = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [date, setDate] = useState('');
   const [yesterdayCount, setYesterdayCount] = useState(0);
-  const [questType, setQuestType] = useState<QuestType>('short');
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Date
   useEffect(() => {
@@ -63,11 +62,12 @@ const Page = () => {
     );
   }, []);
 
-  // Fetch — re-runs when questType changes
+  // Fetch + auto-reset only non-persistent tasks
   useEffect(() => {
     if (isLoading) return;
     if (!isLoggedIn || !user?.id) {
       setTasks([]);
+      setHasLoaded(true);
       return;
     }
 
@@ -76,102 +76,105 @@ const Page = () => {
         .from('quests')
         .select('*')
         .eq('user_id', user.id)
-        .eq('quest_type', questType)
         .order('created_at', { ascending: true });
 
-      if (error || !data) return;
+      if (error || !data) {
+        setHasLoaded(true);
+        return;
+      }
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
 
-      if (questType === 'short') {
-        setYesterdayCount(
-          data.filter((q) => {
-            const d = new Date(q.created_at);
-            d.setHours(0, 0, 0, 0);
-            return d.getTime() === yesterday.getTime() && q.completed;
-          }).length,
-        );
-      }
+      setYesterdayCount(
+        data.filter((q) => {
+          const d = new Date(q.created_at);
+          d.setHours(0, 0, 0, 0);
+          return d.getTime() === yesterday.getTime() && q.completed;
+        }).length,
+      );
 
-      if (questType === 'short') {
-        const staleIds = data
-          .filter((q) => {
-            const d = new Date(q.created_at);
-            d.setHours(0, 0, 0, 0);
-            return (
-              d.getTime() < today.getTime() &&
-              !q.completed &&
-              q.status !== 'Not Started'
-            );
-          })
-          .map((q) => q.id);
+      // Auto-reset only NON-persistent tasks
+      const staleIds = data
+        .filter((q) => {
+          if (q.is_persistent) return false;
+          const d = new Date(q.last_reset_at || q.created_at);
+          d.setHours(0, 0, 0, 0);
+          const isOld = d.getTime() < today.getTime();
+          const wasActive = q.completed || q.status !== 'Not Started';
+          return isOld && wasActive;
+        })
+        .map((q) => q.id);
 
-        if (staleIds.length > 0) {
-          await supabase
-            .from('quests')
-            .update({ status: 'Not Started', completed: false })
-            .in('id', staleIds);
-        }
-
-        setTasks(
-          data.filter((q) => {
-            const d = new Date(q.created_at);
-            d.setHours(0, 0, 0, 0);
-            return d.getTime() === today.getTime();
-          }),
-        );
-      } else {
-        const staleCompletedIds = data
-          .filter((q) => {
-            const d = new Date(q.last_reset_at || q.created_at);
-            d.setHours(0, 0, 0, 0);
-            return d.getTime() < today.getTime() && q.completed;
-          })
-          .map((q) => q.id);
-
-        if (staleCompletedIds.length > 0) {
-          await supabase
-            .from('quests')
-            .update({
-              status: 'Not Started',
-              completed: false,
-              last_reset_at: today.toISOString(),
-            })
-            .in('id', staleCompletedIds);
-        }
-
-        const { data: refreshed } = await supabase
+      if (staleIds.length > 0) {
+        await supabase
           .from('quests')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('quest_type', 'long')
-          .order('created_at', { ascending: true });
-
-        setTasks(refreshed || data);
+          .update({
+            status: 'Not Started',
+            completed: false,
+            last_reset_at: today.toISOString(),
+          })
+          .in('id', staleIds);
       }
+
+      // Refetch to get fresh values
+      const { data: refreshed } = await supabase
+        .from('quests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      const source = refreshed || data;
+
+      const filtered = source.filter((q) => {
+        if (q.is_persistent) return true;
+        const d = new Date(q.last_reset_at || q.created_at);
+        d.setHours(0, 0, 0, 0);
+        return d.getTime() === today.getTime();
+      });
+
+      // Mark all fetched tasks as non-optimistic so they don't re-animate
+      setTasks(filtered.map((t) => ({ ...t, isOptimistic: false })));
+      setHasLoaded(true);
     };
 
     fetchQuests();
-  }, [isLoggedIn, isLoading, user, questType]);
+  }, [isLoggedIn, isLoading, user, supabase]);
 
+  // ========================================================================
+  // ADD with optimistic UI
+  // ========================================================================
   const addTask = async () => {
-    if (!isLoggedIn || !user) {
-      setTasks([
-        ...tasks,
-        {
-          task: '',
-          status: 'Not Started',
-          completed: false,
-          priority: 'None',
-          duration: '',
-          quest_type: questType,
-        },
-      ]);
-      return;
-    }
+    const tempId = `temp-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+    const optimisticTask: Task = {
+      id: tempId,
+      task: '',
+      status: 'Not Started',
+      completed: false,
+      priority: 'None',
+      duration: '',
+      is_persistent: false,
+      isOptimistic: true,
+      created_at: new Date().toISOString(),
+      last_reset_at: new Date().toISOString(),
+    };
+
+    setTasks((prev) => [...prev, optimisticTask]);
+
+    requestAnimationFrame(() => {
+      const el = document.querySelector(
+        `[data-task-id="${tempId}"] input`,
+      ) as HTMLInputElement | null;
+      el?.focus({ preventScroll: true });
+    });
+
+    if (!isLoggedIn || !user) return;
+
     const { data, error } = await supabase
       .from('quests')
       .insert([
@@ -182,11 +185,20 @@ const Page = () => {
           priority: 'None',
           duration: '',
           completed: false,
-          quest_type: questType,
+          is_persistent: false,
         },
       ])
       .select();
-    if (!error && data) setTasks([...tasks, data[0]]);
+
+    if (error || !data) {
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      return;
+    }
+
+    const realTask = data[0];
+    setTasks((prev) =>
+      prev.map((t) => (t.id === tempId ? { ...realTask } : t)),
+    );
   };
 
   const updateTask = async (
@@ -201,7 +213,12 @@ const Page = () => {
     if (key === 'completed')
       updated[index].status = value ? 'Done' : 'In Progress';
     setTasks(updated);
-    if (isLoggedIn && taskToUpdate.id) {
+
+    if (
+      isLoggedIn &&
+      taskToUpdate.id &&
+      !taskToUpdate.id.startsWith('temp-')
+    ) {
       await supabase
         .from('quests')
         .update({
@@ -213,11 +230,35 @@ const Page = () => {
     }
   };
 
+  const togglePersistent = async (index: number) => {
+    const task = tasks[index];
+    const newValue = !task.is_persistent;
+
+    setTasks((prev) =>
+      prev.map((t, i) =>
+        i === index ? { ...t, is_persistent: newValue } : t,
+      ),
+    );
+
+    if (isLoggedIn && task.id && !task.id.startsWith('temp-')) {
+      await supabase
+        .from('quests')
+        .update({ is_persistent: newValue })
+        .eq('id', task.id);
+    }
+  };
+
   const removeTask = async (index: number) => {
     const taskToDelete = tasks[index];
-    setTasks(tasks.filter((_, i) => i !== index));
-    if (isLoggedIn && taskToDelete.id)
+    setTasks((prev) => prev.filter((_, i) => i !== index));
+
+    if (
+      isLoggedIn &&
+      taskToDelete.id &&
+      !taskToDelete.id.startsWith('temp-')
+    ) {
       await supabase.from('quests').delete().eq('id', taskToDelete.id);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -299,7 +340,6 @@ const Page = () => {
           )}
         </AnimatePresence>
 
-        {/* HOME BUTTON */}
         <Link href='/'>
           <motion.div
             whileHover={{ scale: 1.04, x: 3, y: 3, boxShadow: 'none' }}
@@ -317,7 +357,7 @@ const Page = () => {
         </Link>
       </div>
 
-      {/* HERO SECTION — cleaned up */}
+      {/* HERO */}
       <div className='text-center px-4 sm:px-6 pt-6 sm:pt-8 pb-5 sm:pb-7'>
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
@@ -327,7 +367,6 @@ const Page = () => {
           QuestBoard
         </motion.h1>
 
-        {/* Single combined info line */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -337,7 +376,7 @@ const Page = () => {
           <span className='flex items-center gap-1.5'>
             <CalendarDaysIcon size={16} /> {date}
           </span>
-          {questType === 'short' && yesterdayCount > 0 && (
+          {yesterdayCount > 0 && (
             <span className='flex items-center gap-1.5 opacity-60 text-xs sm:text-sm'>
               <span className='opacity-30'>·</span>
               <CheckCheckIcon size={13} />
@@ -346,52 +385,19 @@ const Page = () => {
           )}
         </motion.div>
 
-        {/* QUEST TYPE TOGGLE */}
-        <motion.div
+        <motion.p
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className='flex items-center justify-center mt-5'
+          className='text-[11px] sm:text-xs text-light-bronze/60 uppercase tracking-widest mt-4'
         >
-          <div className='relative flex items-center bg-white border-4 border-black rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-1 gap-1'>
-            <motion.div
-              layout
-              className='absolute top-1 bottom-1 rounded-xl bg-accent-foreground'
-              style={{
-                left: questType === 'short' ? '4px' : '50%',
-                right: questType === 'short' ? '50%' : '4px',
-              }}
-              transition={{ type: 'spring', damping: 22, stiffness: 260 }}
-            />
-            <button
-              onClick={() => setQuestType('short')}
-              className={`relative z-10 flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm uppercase tracking-wide font-luckiest transition-colors duration-150 ${
-                questType === 'short'
-                  ? 'text-white'
-                  : 'text-black/50 hover:text-black'
-              }`}
-            >
-              <Zap size={14} />
-              Short Term
-            </button>
-            <button
-              onClick={() => setQuestType('long')}
-              className={`relative z-10 flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm uppercase tracking-wide font-luckiest transition-colors duration-150 ${
-                questType === 'long'
-                  ? 'text-white'
-                  : 'text-black/50 hover:text-black'
-              }`}
-            >
-              <Target size={14} />
-              Long Term
-            </button>
-          </div>
-        </motion.div>
+          Daily tasks reset at midnight · Pinned tasks stay forever
+        </motion.p>
       </div>
 
       {/* PROGRESS BAR */}
       <AnimatePresence>
-        {isLoggedIn && totalCount > 0 && (
+        {isLoggedIn && hasLoaded && totalCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -413,7 +419,11 @@ const Page = () => {
               <motion.div
                 initial={{ width: 0 }}
                 animate={{
-                  width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%`,
+                  width: `${
+                    totalCount > 0
+                      ? (completedCount / totalCount) * 100
+                      : 0
+                  }%`,
                 }}
                 transition={{ duration: 0.6, ease: 'easeOut' }}
                 className='h-full bg-primary rounded-full'
@@ -426,20 +436,21 @@ const Page = () => {
       {/* MISSION TABLE */}
       <div className='max-w-6xl mx-auto px-3 sm:px-6 md:px-10 pb-28 sm:pb-32'>
         <motion.div
-          key={questType}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.15 }}
           className='border-4 border-black rounded-2xl sm:rounded-3xl overflow-hidden shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white'
         >
-          {/* ── DESKTOP TABLE (md+) ── */}
+          {/* ── DESKTOP TABLE ── */}
           <div className='hidden md:block'>
-            <div className='grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.6fr_0.5fr] bg-white border-b-4 border-black'>
-              {['Quest', 'Priority', 'Duration', 'Status', 'Done', ''].map(
+            <div className='grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.5fr_0.5fr_0.5fr] bg-white border-b-4 border-black'>
+              {['Quest', 'Priority', 'Duration', 'Status', 'Pin', 'Done', ''].map(
                 (h, i) => (
                   <div
                     key={i}
-                    className={`px-4 py-3 text-xs md:text-sm uppercase opacity-50 tracking-widest ${i > 0 ? 'text-center border-l-2 border-black/10' : 'pl-5'}`}
+                    className={`px-4 py-3 text-xs md:text-sm uppercase opacity-50 tracking-widest ${
+                      i > 0 ? 'text-center border-l-2 border-black/10' : 'pl-5'
+                    }`}
                   >
                     {h}
                   </div>
@@ -447,19 +458,19 @@ const Page = () => {
               )}
             </div>
 
-            <AnimatePresence mode='popLayout'>
-              {tasks.length === 0 && !isLoading && (
+            <AnimatePresence mode='popLayout' initial={false}>
+              {hasLoaded && tasks.length === 0 && (
                 <motion.div
+                  key='empty-desktop'
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
                   className='py-16 text-center'
                 >
-                  <div className='text-4xl mb-3'>
-                    {questType === 'short' ? '⚔️' : '🏰'}
-                  </div>
+                  <div className='text-4xl mb-3'>⚔️</div>
                   <p className='uppercase opacity-30 text-sm tracking-widest'>
-                    No {questType === 'short' ? 'daily' : 'long-term'} quests
-                    yet
+                    No quests yet
                   </p>
                   <p className='uppercase opacity-20 text-xs mt-1'>
                     Add one below to begin
@@ -469,22 +480,39 @@ const Page = () => {
 
               {tasks.map((item, i) => (
                 <motion.div
-                  layout
                   key={item.id || `local-${i}`}
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.6fr_0.5fr] border-b border-black/10 last:border-0 items-stretch ${getStatusColor(item.status)}`}
+                  data-task-id={item.id}
+                  initial={
+                    item.isOptimistic
+                      ? { opacity: 0, scaleY: 0.92, y: 12 }
+                      : false
+                  }
+                  animate={{ opacity: 1, scaleY: 1, y: 0 }}
+                  exit={{ opacity: 0, scaleY: 0.92, y: -8 }}
+                  transition={{
+                    duration: 0.55,
+                    ease: [0.22, 1, 0.36, 1],
+                    opacity: { duration: 0.35, ease: 'easeOut' },
+                    y: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+                    scaleY: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                  style={{ originY: 0, willChange: 'transform, opacity' }}
+                  className={`grid grid-cols-[2fr_0.8fr_0.8fr_1fr_0.5fr_0.5fr_0.5fr] border-b border-black/10 last:border-0 items-stretch ${getStatusColor(
+                    item.status,
+                  )}`}
                 >
                   <input
-                    className={`px-5 py-4 bg-transparent outline-none text-sm md:text-base placeholder:opacity-25 font-luckiest ${item.completed ? 'line-through opacity-40' : ''}`}
+                    className={`px-5 py-4 bg-transparent outline-none text-sm md:text-base placeholder:opacity-25 font-luckiest ${
+                      item.completed ? 'line-through opacity-40' : ''
+                    }`}
                     value={item.task}
                     onChange={(e) => updateTask(i, 'task', e.target.value)}
                     placeholder='Add a mission...'
                   />
                   <div
-                    className={`relative border-l-2 border-black/10 ${getPriorityColor(item.priority)}`}
+                    className={`relative border-l-2 border-black/10 ${getPriorityColor(
+                      item.priority,
+                    )}`}
                   >
                     <select
                       className='w-full h-full px-2 py-4 bg-transparent outline-none cursor-pointer appearance-none text-center text-xs font-luckiest'
@@ -528,6 +556,31 @@ const Page = () => {
                       className='absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40'
                     />
                   </div>
+
+                  <div
+                    onClick={() => togglePersistent(i)}
+                    className='flex justify-center items-center border-l-2 border-black/10 cursor-pointer hover:bg-yellow-50 transition-colors group'
+                    title={
+                      item.is_persistent
+                        ? 'Pinned — will NOT auto-reset'
+                        : 'Click to pin — prevents daily reset'
+                    }
+                  >
+                    <motion.div whileTap={{ scale: 0.85 }}>
+                      {item.is_persistent ? (
+                        <Pin
+                          size={16}
+                          className='text-amber-600 fill-amber-400'
+                        />
+                      ) : (
+                        <PinOff
+                          size={16}
+                          className='text-black/20 group-hover:text-amber-500 transition-colors'
+                        />
+                      )}
+                    </motion.div>
+                  </div>
+
                   <div
                     className='flex justify-center items-center border-l-2 border-black/10 cursor-pointer'
                     onClick={() =>
@@ -536,7 +589,11 @@ const Page = () => {
                   >
                     <motion.div
                       whileTap={{ scale: 0.85 }}
-                      className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center transition-all ${item.completed ? 'bg-primary shadow-[2px_2px_0px_black]' : 'bg-white'}`}
+                      className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center transition-all ${
+                        item.completed
+                          ? 'bg-primary shadow-[2px_2px_0px_black]'
+                          : 'bg-white'
+                      }`}
                     >
                       {item.completed && (
                         <CheckIcon size={16} className='text-white' />
@@ -557,21 +614,21 @@ const Page = () => {
             </AnimatePresence>
           </div>
 
-          {/* ── MOBILE CARDS (below md) ── */}
+          {/* ── MOBILE CARDS ── */}
           <div className='block md:hidden'>
-            <AnimatePresence mode='popLayout'>
-              {tasks.length === 0 && !isLoading && (
+            <AnimatePresence mode='popLayout' initial={false}>
+              {hasLoaded && tasks.length === 0 && (
                 <motion.div
+                  key='empty-mobile'
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
                   className='py-14 text-center'
                 >
-                  <div className='text-4xl mb-3'>
-                    {questType === 'short' ? '⚔️' : '🏰'}
-                  </div>
+                  <div className='text-4xl mb-3'>⚔️</div>
                   <p className='uppercase opacity-30 text-sm tracking-widest'>
-                    No {questType === 'short' ? 'daily' : 'long-term'} quests
-                    yet
+                    No quests yet
                   </p>
                   <p className='uppercase opacity-20 text-xs mt-1'>
                     Add one below to begin
@@ -581,27 +638,65 @@ const Page = () => {
 
               {tasks.map((item, i) => (
                 <motion.div
-                  layout
                   key={item.id || `local-${i}`}
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`border-b border-black/10 last:border-0 p-3 ${getStatusColor(item.status)}`}
+                  data-task-id={item.id}
+                  initial={
+                    item.isOptimistic
+                      ? { opacity: 0, scaleY: 0.94, y: 12 }
+                      : false
+                  }
+                  animate={{ opacity: 1, scaleY: 1, y: 0 }}
+                  exit={{ opacity: 0, scaleY: 0.94, y: -8 }}
+                  transition={{
+                    duration: 0.55,
+                    ease: [0.22, 1, 0.36, 1],
+                    opacity: { duration: 0.35, ease: 'easeOut' },
+                    y: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+                    scaleY: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+                  }}
+                  style={{ originY: 0, willChange: 'transform, opacity' }}
+                  className={`border-b border-black/10 last:border-0 p-3 ${getStatusColor(
+                    item.status,
+                  )}`}
                 >
                   <div className='flex items-center gap-2 mb-2'>
                     <input
-                      className={`flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:opacity-25 font-luckiest ${item.completed ? 'line-through opacity-40' : ''}`}
+                      className={`flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:opacity-25 font-luckiest ${
+                        item.completed ? 'line-through opacity-40' : ''
+                      }`}
                       value={item.task}
                       onChange={(e) => updateTask(i, 'task', e.target.value)}
                       placeholder='Add a mission...'
                     />
+                    <motion.button
+                      whileTap={{ scale: 0.85 }}
+                      onClick={() => togglePersistent(i)}
+                      className='w-7 h-7 flex items-center justify-center flex-shrink-0'
+                      title={
+                        item.is_persistent
+                          ? 'Pinned — will NOT auto-reset'
+                          : 'Click to pin'
+                      }
+                    >
+                      {item.is_persistent ? (
+                        <Pin
+                          size={14}
+                          className='text-amber-600 fill-amber-400'
+                        />
+                      ) : (
+                        <PinOff size={14} className='text-black/20' />
+                      )}
+                    </motion.button>
                     <motion.div
                       whileTap={{ scale: 0.85 }}
                       onClick={() =>
                         updateTask(i, 'completed', !item.completed)
                       }
-                      className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center flex-shrink-0 cursor-pointer transition-all ${item.completed ? 'bg-primary shadow-[2px_2px_0px_black]' : 'bg-white'}`}
+                      className={`w-7 h-7 rounded-lg border-2 border-black flex items-center justify-center flex-shrink-0 cursor-pointer transition-all ${
+                        item.completed
+                          ? 'bg-primary shadow-[2px_2px_0px_black]'
+                          : 'bg-white'
+                      }`}
                     >
                       {item.completed && (
                         <CheckIcon size={14} className='text-white' />
@@ -620,7 +715,9 @@ const Page = () => {
 
                   <div className='flex items-center gap-2'>
                     <div
-                      className={`relative flex-1 rounded-lg border-2 border-black/15 ${getPriorityColor(item.priority)}`}
+                      className={`relative flex-1 rounded-lg border-2 border-black/15 ${getPriorityColor(
+                        item.priority,
+                      )}`}
                     >
                       <select
                         className='w-full px-2 py-1.5 bg-transparent outline-none cursor-pointer appearance-none text-center text-[10px] font-luckiest'
@@ -679,7 +776,7 @@ const Page = () => {
           >
             <Plus size={15} />
             <span className='text-xs sm:text-sm uppercase tracking-widest'>
-              Add {questType === 'short' ? 'daily' : 'long-term'} quest
+              Add quest
             </span>
           </motion.button>
         </motion.div>
